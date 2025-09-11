@@ -1,6 +1,6 @@
 {
   "name": "Slim PHP Dev",
-  "dockerComposeFile": ["../docker-compose.yml"],
+  "dockerComposeFile": ["docker-compose.yml"],
   "service": "slim",
   "workspaceFolder": "/var/www",
   "customizations": {
