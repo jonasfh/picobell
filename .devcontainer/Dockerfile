@@ -1,4 +1,3 @@
-# .devcontainer/Dockerfile
 FROM ubuntu:24.04
 
 # Unngå interaktive spørsmål
@@ -10,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     php-fpm \
     php-mbstring \
     php-xml \
+    php-curl \
     unzip \
     git \
     curl \
@@ -20,5 +20,11 @@ RUN apt-get update && apt-get install -y \
 RUN curl -sS https://getcomposer.org/installer | php -- \
     --install-dir=/usr/local/bin --filename=composer
 
-WORKDIR /var/www
+# Etter at composer er installert
+COPY . /workspace/
+RUN composer update --no-interaction || true
+RUN cd /workspace/server && composer install --no-interaction --prefer-dist \
+    --optimize-autoloader || true
+RUN rm -rf /var/www && ln -s /workspace/server /var/www
 
+WORKDIR /workspace

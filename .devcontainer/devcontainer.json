@@ -1,8 +1,9 @@
 {
   "name": "Slim PHP Dev",
-  "dockerComposeFile": ["docker-compose.yml"],
+  "dockerComposeFile": "../docker-compose.yml",
   "service": "slim",
-  "workspaceFolder": "/var/www",
+  "workspaceFolder": "/workspace",
+  "overrideCommand": false,
   "customizations": {
     "vscode": {
       "extensions": [
@@ -13,6 +14,7 @@
     }
   },
   "forwardPorts": [8080],
-  "remoteUser": "root"
+  "remoteUser": "root",
+  "postCreateCommand": "cd /workspace/server && composer install",
+  "postStartCommand": "cd /workspace/server && composer start"
 }
-

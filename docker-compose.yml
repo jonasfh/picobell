@@ -1,16 +1,16 @@
-version: '3.8'
-
 services:
   slim:
     build:
       context: .
       dockerfile: .devcontainer/Dockerfile
     volumes:
-      - .:/var/www
+      - .:/workspace
+      - ./server:/var/www
     working_dir: /var/www
-    command: php -S 0.0.0.0:8080 -t public
+#    command: sh -c "php -S 0.0.0.0:8080 -t public"
+    command: sleep infinity
     ports:
       - "8080:8080"
     environment:
       docker: "true"
-
+      COMPOSER_ROOT_VERSION: "0.0.1"
