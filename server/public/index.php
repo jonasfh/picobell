@@ -13,8 +13,6 @@ use Slim\Factory\ServerRequestCreatorFactory;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-require __DIR__ . '/../src/config/loadEnv.php';
-
 EnvLoader::load(__DIR__ . '/../.env');
 
 
