@@ -14,3 +14,6 @@ services:
     environment:
       docker: "true"
       COMPOSER_ROOT_VERSION: "0.0.1"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
