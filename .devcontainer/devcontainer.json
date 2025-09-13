@@ -16,5 +16,5 @@
   "forwardPorts": [8080],
   "remoteUser": "root",
   "postCreateCommand": "cd /workspace/server && composer install",
-  "postStartCommand": "cd /workspace/server && composer start"
+  "postStartCommand": "cd /workspace/server && nohup composer start > /workspace/server/composer.log 2>&1 &"
 }
