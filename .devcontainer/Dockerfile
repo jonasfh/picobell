@@ -27,8 +27,4 @@ RUN cd /workspace/server && composer install --no-interaction --prefer-dist \
     --optimize-autoloader || true
 RUN rm -rf /var/www && ln -s /workspace/server /var/www
 
-# Use google name servers to avoid DNS issues
-RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf
-RUN echo "nameserver 8.8.4.4" >> /etc/resolv.conf
-
 WORKDIR /workspace
