@@ -15,6 +15,7 @@
     "require": {
         "php": "^7.4 || ^8.0",
         "ext-json": "*",
+        "google/auth": "^1.47",
         "guzzlehttp/guzzle": "^7.10",
         "monolog/monolog": "^2.8",
         "php-di/php-di": "^6.4",
