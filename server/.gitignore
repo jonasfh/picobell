@@ -6,3 +6,5 @@
 !/logs/README.md
 .phpunit.result.cache
 *.log
+config/*
+.env
