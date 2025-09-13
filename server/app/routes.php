@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-use App\Application\Actions\User\ListUsersAction;
-use App\Application\Actions\User\ViewUserAction;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\App;
-use Slim\Interfaces\RouteCollectorProxyInterface as Group;
 
 return function (App $app) {
-    $app->options('/{routes:.*}', function (Request $request, Response $response) {
+    $app->options('/{routes:.*}', function (
+        Request $request,
+        Response $response
+    ) {
         // CORS Pre-Flight OPTIONS Request Handler
         return $response;
     });
@@ -20,8 +20,23 @@ return function (App $app) {
         return $response;
     });
 
-    $app->group('/users', function (Group $group) {
-        $group->get('', ListUsersAction::class);
-        $group->get('/{id}', ViewUserAction::class);
+    // Helse-sjekk
+    $app->get('/health', function (Request $req, Response $res) {
+        $res->getBody()->write(json_encode(['status' => 'ok']));
+        return $res->withHeader('Content-Type', 'application/json');
+    });
+
+    // Pico melder fra når noen ringer på
+    $app->post('/doorbell/ring', function (Request $req, Response $res) {
+        // TODO: trigge FCM push-varsler til mobil
+        $res->getBody()->write(json_encode(['message' => 'Ring event received']));
+        return $res->withHeader('Content-Type', 'application/json');
+    });
+
+    // Mobil-app trykker åpne
+    $app->post('/doorbell/open', function (Request $req, Response $res) {
+        // TODO: sende melding til Pico (MQTT, HTTP eller WebSocket)
+        $res->getBody()->write(json_encode(['message' => 'Open command sent']));
+        return $res->withHeader('Content-Type', 'application/json');
     });
 };
