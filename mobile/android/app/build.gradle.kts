@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.jonasfh.picobell"
+    namespace = "com.jonasfh.picobelltaco"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.jonasfh.picobell"
+        applicationId = "com.jonasfh.picobelltaco"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
