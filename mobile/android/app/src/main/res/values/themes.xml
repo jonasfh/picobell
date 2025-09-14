@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-
-    <style name="Theme.PicoBell" parent="android:Theme.Material.Light.NoActionBar" />
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.PicobellApp" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorPrimary">@android:color/holo_purple</item>
+        <item name="colorPrimaryDark">@android:color/holo_purple</item>
+        <item name="colorAccent">@android:color/holo_blue_light</item>
+    </style>
 </resources>
+
+
