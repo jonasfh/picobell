@@ -1,4 +1,4 @@
-package com.jonasfh.picobell
+package com.jonasfh.picobelltaco
 
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
