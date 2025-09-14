@@ -1,4 +1,4 @@
-package com.jonasfh.picobell
+package com.jonasfh.picobelltaco
 
 import android.app.Application
 import androidx.emoji.text.EmojiCompat
