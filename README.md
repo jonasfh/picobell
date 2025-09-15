@@ -61,6 +61,68 @@ flowchart LR
 * Server: Python (FastAPI/Flask). Håndterer API, push-varsler, autentisering.
 * Mobilapp: Android (og evt. iOS). Mottar varsler, gir bruker mulighet til å åpne dør.
 
+## Database
+
+Det er behov for en database for følgende oppgaver: 
+
+* Registrering av brukere
+* Registrering av leiligheter/picoer
+
+
+```mermaid
+erDiagram
+    USERS {
+        int      id
+        string   email
+        string   password_hash
+        string   display_name
+        string   phone
+        datetime created_at
+        datetime updated_at
+    }
+
+    APARTMENTS {
+        int      id
+        string   name
+        string   address
+        string   pico_id
+        string   fw_version
+        string   metadata
+        datetime created_at
+    }
+
+    USER_APARTMENT {
+        int      id
+        int      user_id
+        int      apartment_id
+        string   role
+        datetime created_at
+    }
+
+    DEVICE_TOKENS {
+        int      id
+        int      user_id
+        string   token
+        string   platform
+        datetime created_at
+        datetime last_seen
+    }
+
+    AUDIT_LOG {
+        int      id
+        int      user_id
+        string   event_type
+        string   details
+        string   ip
+        datetime created_at
+    }
+
+    USERS ||--o{ USER_APARTMENT : has
+    APARTMENTS ||--o{ USER_APARTMENT : has
+    USERS ||--o{ DEVICE_TOKENS : owns
+    USERS ||--o{ AUDIT_LOG : generates
+```
+
 ## Sikkerhet
 
 * Pico fungerer kun som klient, aldri åpen port mot internett.
