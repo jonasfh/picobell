@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     nano \
+    php-sqlite3 \
+    php-mysql \
     && rm -rf /var/lib/apt/lists/*
 
 # Installer Composer
