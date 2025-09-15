@@ -36,15 +36,15 @@ Se [docs](docs/) for detaljert dokumentasjon.
 flowchart LR
     subgraph HW[Raspberry Pi Pico + Porttelefon]
         BELL[Ringesignal deteksjon] --> PICO
-        BTN[Døråpner-knapp (relé)] --> PICO
+        BTN["Døråpner-knapp (relé)"] --> PICO
         PICO -- "MikroPython/C++" --> WIFI((WiFi))
     end
 
     WIFI --> SERVER[Python backend på NREC]
 
     subgraph SERVER
-        API[REST API (FastAPI/Flask)]
-        QUEUE[Message Queue (opsjon)]
+        API["REST API (FastAPI/Flask)"]
+        QUEUE["Message Queue (opsjon)"]
         FCM[Firebase Cloud Messaging]
     end
 
