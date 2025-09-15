@@ -33,10 +33,37 @@ Se [docs](docs/) for detaljert dokumentasjon.
 ## Arkitektur (oversikt)
 
 ```mermaid
-flowchart TD
-    PICO[Raspberry Pi Pico] -- "HTTP(S) client" --> SERVER[Python backend]
-    SERVER -- "Push notification (FCM)" --> ANDROID[Android app]
-    SERVER -- "Push notification (APNs)" --> IOS[iOS app]
-    ANDROID <--> SERVER
-    IOS <--> SERVER
+flowchart LR
+    subgraph HW[Raspberry Pi Pico + Porttelefon]
+        BELL[Ringesignal deteksjon] --> PICO
+        BTN[Døråpner-knapp (relé)] --> PICO
+        PICO -- "MikroPython/C++" --> WIFI((WiFi))
+    end
 
+    WIFI --> SERVER[Python backend på NREC]
+
+    subgraph SERVER
+        API[REST API (FastAPI/Flask)]
+        QUEUE[Message Queue (opsjon)]
+        FCM[Firebase Cloud Messaging]
+    end
+
+    SERVER <--> API
+    API --> FCM
+
+    FCM --> APP[Android/iOS App]
+    APP <--> API
+```
+
+## Komponenter
+
+* Pico: Leser ringesignalet, styrer døråpner.
+* Server: Python (FastAPI/Flask). Håndterer API, push-varsler, autentisering.
+* Mobilapp: Android (og evt. iOS). Mottar varsler, gir bruker mulighet til å åpne dør.
+
+## Sikkerhet
+
+* Pico fungerer kun som klient, aldri åpen port mot internett.
+* Server kjører med TLS (nginx som reverse proxy).
+* Push-varsler håndteres via Firebase (Android) og evt. APNs (iOS).
+* API autentisering med tokens (JWT eller lignende).
