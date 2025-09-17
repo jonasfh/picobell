@@ -15,5 +15,5 @@
   },
   "forwardPorts": [8080],
   "remoteUser": "root",
-  "postCreateCommand": "cd /workspace/server && composer install"
+  "postCreateCommand": "cd /workspace/server && composer install && cd config && vendor/robmorgan/phinx/bin/phinx.php migrate -n -c config/phinx.php && vendor/robmorgan/phinx/bin/phinx.php -n -c config/phinx.php seed:run"
 }
