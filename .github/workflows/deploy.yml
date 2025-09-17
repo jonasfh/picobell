@@ -26,5 +26,5 @@ jobs:
 
       - name: Deploy via SSH
         run: |
-          ssh $SERVER \
+          ssh $SERVER -i ~/.ssh/id_rsa \
             "cd webroots/$WEB_ROOT && git reset --hard origin/main"
