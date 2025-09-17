@@ -8,6 +8,7 @@ env:
   WEB_ROOT: ${{ vars.WEB_ROOT }}
   HOST_PUBKEY: ${{ vars.HOST_PUBKEY }}
   SSH_KEY: ${{ secrets.SSH_KEY }}
+  USERNAME: ${{ vars.USERNAME }}
 
 jobs:
   deploy:
@@ -26,5 +27,5 @@ jobs:
 
       - name: Deploy via SSH
         run: |
-          ssh $SERVER -i ~/.ssh/id_rsa \
+          ssh $USERNAME@$SERVER -i ~/.ssh/id_rsa \
             "cd webroots/$WEB_ROOT && git reset --hard origin/main"
