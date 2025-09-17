@@ -1,2 +1,4 @@
 *
 !default.*
+!phinx.php
+!database.php

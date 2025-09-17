@@ -4,11 +4,13 @@ namespace App\Application\Settings;
 
 class EnvLoader
 {
-    /**
-     * Load .env file into getenv(), $_ENV and $_SERVER
-     */
+    private static bool $loaded = false;
+
     public static function load(string $file): void
     {
+        if (self::$loaded) {
+            return;
+        }
         if (!file_exists($file)) {
             throw new \RuntimeException(".env file not found: $file");
         }
@@ -23,5 +25,7 @@ class EnvLoader
             $_ENV[$key] = $value;
             $_SERVER[$key] = $value;
         }
+
+        self::$loaded = true;
     }
 }
