@@ -13,7 +13,7 @@ use Slim\Factory\ServerRequestCreatorFactory;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-EnvLoader::load(__DIR__ . '/../.env');
+EnvLoader::load(__DIR__ . '/../config/.env');
 
 
 // Instantiate PHP-DI ContainerBuilder
