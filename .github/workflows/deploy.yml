@@ -28,4 +28,4 @@ jobs:
       - name: Deploy via SSH
         run: |
           ssh $USERNAME@$SERVER -i ~/.ssh/id_rsa \
-            "cd webroots/$WEB_ROOT && git reset --hard origin/main"
+            "cd webroots/$WEB_ROOT && git fetch &&git reset --hard origin/main"
