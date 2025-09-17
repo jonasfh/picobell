@@ -48,5 +48,8 @@ $app->get('/health', function ($request, $response) use ($database) {
     return $response->withHeader('Content-Type', 'application/json');
 });
 
+$routes = require __DIR__ . '/../app/routes.php';
+$routes($app, $database);
+
 // === Start app ===
 $app->run();
