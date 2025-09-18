@@ -12,7 +12,7 @@ class EnvLoader
             return;
         }
         if (!file_exists($file)) {
-            error_log(".env file not found: $file", E_USER_WARNING);
+            error_log(".env file not found: $file", E_USER_NOTICE);
             self::$loaded = true;
             return;
         }
