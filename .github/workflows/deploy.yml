@@ -28,7 +28,7 @@ jobs:
       - name: Deploy via SSH
         run: |
           COMMANDS=$(cat <<'ENDSSH'
-            cd webroots/$WEB_ROOT
+            cd webroots/${{ vars.WEB_ROOT }}
             git fetch
             git reset --hard origin/main
             composer install --no-dev --optimize-autoloader
