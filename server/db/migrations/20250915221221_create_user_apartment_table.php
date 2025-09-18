@@ -9,8 +9,8 @@ final class CreateUserApartmentTable extends AbstractMigration
     {
         $table = $this->table('user_apartment');
         $table
-            ->addColumn('user_id', 'integer')
-            ->addColumn('apartment_id', 'integer')
+            ->addColumn('user_id', 'integer', ['signed' => false])
+            ->addColumn('apartment_id', 'integer', ['signed' => false])
             ->addColumn('role', 'string', [
                 'limit' => 50,
                 'default' => 'resident',
