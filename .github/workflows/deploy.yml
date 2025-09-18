@@ -23,6 +23,7 @@ env:
   # Secrets
   SSH_KEY: ${{ secrets.SSH_KEY }}
   DB_PASS: ${{ secrets.DB_PASS }}
+  EMULATOR_DEVICE_TEST_TOKEN: ${{ secrets.EMULATOR_DEVICE_TEST_TOKEN }}
 
 
 jobs:
@@ -73,6 +74,7 @@ jobs:
             APP_ENV=$ENV
             FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID
             SERVICE_ACCOUNT_PATH=$SERVICE_ACCOUNT_PATH
+            EMULATOR_DEVICE_TEST_TOKEN=$EMULATOR_DEVICE_TEST_TOKEN
           EOF
           )
           echo "$ENV_CONTENT" | ssh -i ~/.ssh/id_rsa $USERNAME@$SERVER \
