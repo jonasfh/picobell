@@ -27,5 +27,14 @@ jobs:
 
       - name: Deploy via SSH
         run: |
-          ssh $USERNAME@$SERVER -i ~/.ssh/id_rsa \
-            "cd webroots/$WEB_ROOT && git fetch &&git reset --hard origin/main"
+          COMMANDS=$(cat <<'ENDSSH'
+            cd webroots/$WEB_ROOT
+            git fetch
+            git reset --hard origin/main
+            composer install --no-dev --optimize-autoloader
+            # php bin/phinx migrate -e development
+            # Legg til flere kommandoer her om ønskelig
+          ENDSSH
+          )
+          echo "$COMMANDS"
+          ssh $USERNAME@$SERVER -i ~/.ssh/id_rsa "$COMMANDS"
