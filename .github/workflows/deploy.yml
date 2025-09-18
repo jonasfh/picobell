@@ -9,16 +9,21 @@ on:
       - main
 
 env:
+  # Variables
   SERVER: ${{ vars.SERVER }}
   WEB_ROOT: ${{ vars.WEB_ROOT }}
   HOST_PUBKEY: ${{ vars.HOST_PUBKEY }}
-  SSH_KEY: ${{ secrets.SSH_KEY }}
   USERNAME: ${{ vars.USERNAME }}
   DB_TYPE: ${{ vars.DB_TYPE }}
   DB_DATABASE: ${{ vars.DB_DATABASE }}
   DB_HOST: ${{ vars.DB_HOST }}
   DB_USER: ${{ vars.DB_USER }}
-  DB_PASS: ${{ vars.DB_PASS }}
+  FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+  SERVICE_ACCOUNT_PATH: ${{ vars.SERVICE_ACCOUNT_PATH }}
+  # Secrets
+  SSH_KEY: ${{ secrets.SSH_KEY }}
+  DB_PASS: ${{ secrets.DB_PASS }}
+
 
 jobs:
   deploy:
@@ -40,27 +45,46 @@ jobs:
           echo "$HOST_PUBKEY" >> ~/.ssh/known_hosts
 
       - name: Deploy via SSH
-        # If dev, only run on pull requests. If prod, only run on push to main
-        if: (
-            matrix.environment == 'dev' && github.event_name == 'pull_request'
-          )
-          ||
-          (
-            matrix.environment == 'prod' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-          )
+        if: |
+          (matrix.environment == 'dev' && github.event_name == 'pull_request') ||
+          (matrix.environment == 'prod' && github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
-          # create branch name with only alphanumeric characters and hyphens
           EXPORT_DB_SUFFIX=""
           if [ "${{ matrix.environment }}" == "dev" ]; then
-            EXPORT_DB_SUFFIX='export DB_SUFFIX="__dev"'
+            DB_SUFFIX='DB_SUFFIX=__dev'
+            EXPORT_DB_SUFFIX="export $DB_SUFFIX"
           fi
           ENV=${{ matrix.environment }}
+          ENVCONFIGPATH="webroots/${{ vars.WEB_ROOT }}/server/config/.env"
+
+          BRANCH="${{ github.ref_name }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BRANCH="${{ github.head_ref }}"
+          fi
+
+          # Setup secrets in .env file on server
+          ENV_CONTENT=$(cat <<EOF
+            DB_TYPE=$DB_TYPE
+            DB_HOST=$DB_HOST
+            DB_DATABASE=$DB_DATABASE
+            DB_USER=$DB_USER
+            DB_PASS=$DB_PASS
+            $DB_SUFFIX
+            APP_ENV=$ENV
+            FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID
+            SERVICE_ACCOUNT_PATH=$SERVICE_ACCOUNT_PATH
+          EOF
+          )
+          echo "$ENV_CONTENT" | ssh -i ~/.ssh/id_rsa $USERNAME@$SERVER \
+            "set -e && cat > $ENVCONFIGPATH && chmod 600 $ENVCONFIGPATH"
+
+
           COMMANDS=$(cat <<ENDSSH
             set -e
             $EXPORT_DB_SUFFIX
             cd webroots/${{ vars.WEB_ROOT }}
             git fetch
-            git reset --hard origin/main
+            git reset --hard origin/$BRANCH
             cd server
             composer install --no-dev --optimize-autoloader
             php vendor/robmorgan/phinx/bin/phinx migrate -n -c config/phinx.php -e $ENV
