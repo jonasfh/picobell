@@ -8,7 +8,7 @@ final class CreateDevicesTable extends AbstractMigration
     public function change(): void
     {
         $this->table('devices')
-            ->addColumn('user_id', 'integer')
+            ->addColumn('user_id', 'integer', ['signed' => false])
             ->addColumn('name', 'string', ['limit' => 255])
             ->addColumn('token', 'string', ['limit' => 512])
             ->addColumn('created_at', 'timestamp', [

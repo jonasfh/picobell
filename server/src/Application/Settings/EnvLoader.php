@@ -12,7 +12,9 @@ class EnvLoader
             return;
         }
         if (!file_exists($file)) {
-            throw new \RuntimeException(".env file not found: $file");
+            error_log(".env file not found: $file", E_USER_NOTICE);
+            self::$loaded = true;
+            return;
         }
 
         $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
