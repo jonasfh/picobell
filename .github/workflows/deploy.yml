@@ -31,6 +31,7 @@ jobs:
             cd webroots/${{ vars.WEB_ROOT }}
             git fetch
             git reset --hard origin/main
+            cd server
             composer install --no-dev --optimize-autoloader
             # php bin/phinx migrate -e development
             # Legg til flere kommandoer her om ønskelig
