@@ -50,19 +50,22 @@ jobs:
           )
         run: |
           # create branch name with only alphanumeric characters and hyphens
+          EXPORT_DB_SUFFIX=""
           if [ "${{ matrix.environment }}" == "dev" ]; then
-            export DB_SUFFIX="__dev"
+            EXPORT_DB_SUFFIX='export DB_SUFFIX="__dev"'
           fi
-
-          COMMANDS=$(cat <<'ENDSSH'
+          ENV=${{ matrix.environment }}
+          COMMANDS=$(cat <<ENDSSH
+            set -e
+            $EXPORT_DB_SUFFIX
             cd webroots/${{ vars.WEB_ROOT }}
             git fetch
             git reset --hard origin/main
             cd server
             composer install --no-dev --optimize-autoloader
-            php vendor/robmorgan/phinx/bin/phinx migrate -n -c config/phinx.php -e ${{ matrix.environment }}
-            if [ {{ matrix.environment }} == "dev" ]; then
-              php vendor/robmorgan/phinx/bin/phinx seed:run -n -c config/phinx.php -e ${{ matrix.environment }}
+            php vendor/robmorgan/phinx/bin/phinx migrate -n -c config/phinx.php -e $ENV
+            if [ "$ENV" == "dev" ]; then
+              php vendor/robmorgan/phinx/bin/phinx seed:run -n -c config/phinx.php -e $ENV
             fi
           ENDSSH
           )
