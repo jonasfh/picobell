@@ -1,7 +1,12 @@
 name: Deploy to server
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 env:
   SERVER: ${{ vars.SERVER }}
@@ -9,11 +14,20 @@ env:
   HOST_PUBKEY: ${{ vars.HOST_PUBKEY }}
   SSH_KEY: ${{ secrets.SSH_KEY }}
   USERNAME: ${{ vars.USERNAME }}
+  DB_TYPE: ${{ vars.DB_TYPE }}
+  DB_DATABASE: ${{ vars.DB_DATABASE }}
+  DB_HOST: ${{ vars.DB_HOST }}
+  DB_USER: ${{ vars.DB_USER }}
+  DB_PASS: ${{ vars.DB_PASS }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: dev
+    strategy:
+      matrix:
+        environment: [dev, prod]
+      fail-fast: true
+    environment: ${{ matrix.environment }}
     steps:
       - name: Checkout workflow repo
         uses: actions/checkout@v3
@@ -26,15 +40,30 @@ jobs:
           echo "$HOST_PUBKEY" >> ~/.ssh/known_hosts
 
       - name: Deploy via SSH
+        # If dev, only run on pull requests. If prod, only run on push to main
+        if: (
+            matrix.environment == 'dev' && github.event_name == 'pull_request'
+          )
+          ||
+          (
+            matrix.environment == 'prod' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+          )
         run: |
+          # create branch name with only alphanumeric characters and hyphens
+          if [ "${{ matrix.environment }}" == "dev" ]; then
+            export DB_SUFFIX="__dev"
+          fi
+
           COMMANDS=$(cat <<'ENDSSH'
             cd webroots/${{ vars.WEB_ROOT }}
             git fetch
             git reset --hard origin/main
             cd server
             composer install --no-dev --optimize-autoloader
-            # php bin/phinx migrate -e development
-            # Legg til flere kommandoer her om ønskelig
+            php vendor/robmorgan/phinx/bin/phinx migrate -n -c config/phinx.php -e ${{ matrix.environment }}
+            if [ {{ matrix.environment }} == "dev" ]; then
+              php vendor/robmorgan/phinx/bin/phinx seed:run -n -c config/phinx.php -e ${{ matrix.environment }}
+            fi
           ENDSSH
           )
           echo "$COMMANDS"
