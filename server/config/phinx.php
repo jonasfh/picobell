@@ -8,7 +8,9 @@ $credentials = [
     'host'    => $db['host'],
     'user'    => $db['username'],
     'pass'    => $db['password'],
-    'suffix'  => $db['suffix'],
+    'table_prefix'  => $db['table_prefix'],
+    'suffix'  => '',
+    'migration_table' => $db['table_prefix'] . 'phinxlog',
 ];
 return [
     'paths' => [
