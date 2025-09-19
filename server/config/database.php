@@ -13,5 +13,5 @@ return [
     'host'     => $_ENV['DB_HOST'] ?? null,
     'username' => $_ENV['DB_USER'] ?? null,
     'password' => $_ENV['DB_PASS'] ?? null,
-    'suffix'   => $_ENV['DB_SUFFIX'] ?? '',
+    'table_prefix' => $_ENV['APP_ENV'] == 'prod' ? '' : $_ENV['APP_ENV'] . '_',
 ];
