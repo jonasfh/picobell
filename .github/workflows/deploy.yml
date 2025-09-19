@@ -31,7 +31,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        environment: [dev, prod]
+        environment:
+          # - dev # Dev deployments are currently disabled
+          - prod
       fail-fast: true
     environment: ${{ matrix.environment }}
     steps:
