@@ -19,6 +19,7 @@ $database = new Medoo([
     'password' => $_ENV['DB_PASS'] ?? null,
     'port' => $_ENV['DB_PORT'] ?? null,
     'charset' => 'utf8mb4',
+    'prefix' => $_ENV['APP_ENV'] == 'prod' ? '' : ($_ENV['APP_ENV'] ?? 'dev') . '_',
 ]);
 
 // === Opprett Slim-app ===

@@ -32,13 +32,13 @@ jobs:
     strategy:
       matrix:
         environment:
-          # - dev # Dev deployments are currently disabled
+          - dev
           - prod
       fail-fast: true
     environment: ${{ matrix.environment }}
     steps:
       - name: Checkout workflow repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Setup SSH key
         run: |
@@ -52,11 +52,6 @@ jobs:
           (matrix.environment == 'dev' && github.event_name == 'pull_request') ||
           (matrix.environment == 'prod' && github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
-          EXPORT_DB_SUFFIX=""
-          if [ "${{ matrix.environment }}" == "dev" ]; then
-            DB_SUFFIX='DB_SUFFIX=__dev'
-            EXPORT_DB_SUFFIX="export $DB_SUFFIX"
-          fi
           ENV=${{ matrix.environment }}
           ENVCONFIGPATH="webroots/${{ vars.WEB_ROOT }}/server/config/.env"
 
@@ -72,7 +67,6 @@ jobs:
             DB_DATABASE=$DB_DATABASE
             DB_USER=$DB_USER
             DB_PASS=$DB_PASS
-            $DB_SUFFIX
             APP_ENV=$ENV
             FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID
             SERVICE_ACCOUNT_PATH=$SERVICE_ACCOUNT_PATH
@@ -85,7 +79,6 @@ jobs:
 
           COMMANDS=$(cat <<ENDSSH
             set -e
-            $EXPORT_DB_SUFFIX
             cd webroots/${{ vars.WEB_ROOT }}
             git fetch
             git reset --hard origin/$BRANCH
