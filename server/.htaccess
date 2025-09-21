@@ -1,9 +1,9 @@
 Options -Indexes
 
-<Files .htaccess>
-order allow,deny
-deny from all
-</Files>
+# Blokker tilgang til skjulte filer (.htaccess, .env, osv.)
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
 
 <IfModule mod_rewrite.c>
   # Redirect to the public folder
@@ -11,6 +11,9 @@ deny from all
   # RewriteBase /
   RewriteRule ^$ public/ [L]
   RewriteRule (.*) public/$1 [L]
+
+  # return 403 for config folder access
+  RewriteRule ^config/ - [F,L]
 
   # Redirect to HTTPS
   # RewriteEngine On
