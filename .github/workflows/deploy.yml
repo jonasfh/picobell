@@ -53,7 +53,10 @@ jobs:
           (matrix.environment == 'prod' && github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
           ENV=${{ matrix.environment }}
-          ENVCONFIGPATH="webroots/${{ vars.WEB_ROOT }}/server/config/.env"
+          WEB_ROOT=${{ vars.WEB_ROOT }}
+          ENVCONFIGDIR="$ENV/server/config"
+          mkdir -p $ENVCONFIGDIR
+          ENVCONFIGPATH="$ENVCONFIGDIR/.env"
 
           BRANCH="${{ github.ref_name }}"
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -79,10 +82,12 @@ jobs:
 
           COMMANDS=$(cat <<ENDSSH
             set -e
-            cd webroots/${{ vars.WEB_ROOT }}
+            cd $ENV
             git fetch
             git reset --hard origin/$BRANCH
-            cd server
+            cd -
+            rsync -av --delete  $ENV/server/ webroots/$WEB_ROOT/
+            cd webroots/$WEB_ROOT
             composer install --no-dev --optimize-autoloader
             php vendor/robmorgan/phinx/bin/phinx migrate -n -c config/phinx.php -e $ENV
             if [ "$ENV" == "dev" ]; then
