@@ -90,9 +90,6 @@ jobs:
             cd webroots/$WEB_ROOT
             composer install --no-dev --optimize-autoloader
             php vendor/robmorgan/phinx/bin/phinx migrate -n -c config/phinx.php -e $ENV
-            if [ "$ENV" == "dev" ]; then
-              php vendor/robmorgan/phinx/bin/phinx seed:run -n -c config/phinx.php -e $ENV
-            fi
           ENDSSH
           )
           echo "$COMMANDS"

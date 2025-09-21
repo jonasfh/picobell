@@ -1,0 +1,57 @@
+name: Seed Database with dummy data
+
+on:
+  workflow_dispatch:
+
+env:
+  # Variables
+  SERVER: ${{ vars.SERVER }}
+  WEB_ROOT: ${{ vars.WEB_ROOT }}
+  HOST_PUBKEY: ${{ vars.HOST_PUBKEY }}
+  USERNAME: ${{ vars.USERNAME }}
+  # Secrets
+  SSH_KEY: ${{ secrets.SSH_KEY }}
+
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment:
+          - dev
+      fail-fast: true
+    environment: ${{ matrix.environment }}
+    steps:
+      - name: Checkout workflow repo
+        uses: actions/checkout@v5
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          echo "$HOST_PUBKEY" >> ~/.ssh/known_hosts
+
+      - name: Deploy via SSH
+        if: |
+          (matrix.environment == 'dev' && github.event_name == 'pull_request') ||
+          (matrix.environment == 'prod' && github.event_name == 'push' && github.ref == 'refs/heads/main')
+        run: |
+          ENV=${{ matrix.environment }}
+          WEB_ROOT=${{ vars.WEB_ROOT }}
+
+          BRANCH="${{ github.ref_name }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BRANCH="${{ github.head_ref }}"
+          fi
+
+
+          COMMANDS=$(cat <<ENDSSH
+            set -e
+            cd webroots/$WEB_ROOT
+            php vendor/robmorgan/phinx/bin/phinx seed:run -n -c config/phinx.php -e $ENV
+          ENDSSH
+          )
+          echo "$COMMANDS"
+          ssh $USERNAME@$SERVER -i ~/.ssh/id_rsa "$COMMANDS"
