@@ -21,57 +21,13 @@ final class UserApartmentSeeder extends AbstractSeed
         $userApartment = $this->table('user_apartment');
         $userApartment->insert($data)->save();
     }
+
+    public function getDependencies(): array
+    {
+        return [
+            'UsersSeeder',
+            'ApartmentSeeder',
+        ];
+    }
+
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    

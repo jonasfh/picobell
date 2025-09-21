@@ -20,4 +20,10 @@ final class UsersSeeder extends AbstractSeed
         $users = $this->table('users');
         $users->insert($data)->save();
     }
+
+    public function getDependencies(): array
+    {
+        return [];
+    }
+
 }
