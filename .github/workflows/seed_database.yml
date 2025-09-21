@@ -34,9 +34,6 @@ jobs:
           echo "$HOST_PUBKEY" >> ~/.ssh/known_hosts
 
       - name: Deploy via SSH
-        if: |
-          (matrix.environment == 'dev' && github.event_name == 'pull_request') ||
-          (matrix.environment == 'prod' && github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
           ENV=${{ matrix.environment }}
           WEB_ROOT=${{ vars.WEB_ROOT }}
