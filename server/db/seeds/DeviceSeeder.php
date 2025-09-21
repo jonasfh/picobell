@@ -25,4 +25,11 @@ class DeviceSeeder extends AbstractSeed
 
         $this->table('devices')->insert($devices)->saveData();
     }
+    public function getDependencies(): array
+    {
+        return [
+            'UsersSeeder',
+        ];
+    }
+
 }

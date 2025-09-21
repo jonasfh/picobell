@@ -19,4 +19,10 @@ final class ApartmentsSeeder extends AbstractSeed
         $apartments = $this->table('apartments');
         $apartments->insert($data)->save();
     }
+
+    public function getDependencies(): array
+    {
+        return [
+        ];
+    }
 }
