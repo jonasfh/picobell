@@ -85,11 +85,11 @@ jobs:
             cd $ENV
             git fetch
             git reset --hard origin/$BRANCH
-            cd -
-            rsync -av --delete  $ENV/server/ webroots/$WEB_ROOT/
-            cd webroots/$WEB_ROOT
+            cd server
             composer install --no-dev --optimize-autoloader
             php vendor/robmorgan/phinx/bin/phinx migrate -n -c config/phinx.php -e $ENV
+            cd ~
+            rsync -av --delete  $ENV/server/ webroots/$WEB_ROOT/
           ENDSSH
           )
           echo "$COMMANDS"
