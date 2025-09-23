@@ -16,6 +16,7 @@
         "php": "^7.4 || ^8.0",
         "ext-json": "*",
         "catfan/medoo": "^2.2",
+        "firebase/php-jwt": "^6.11",
         "google/auth": "^1.47",
         "guzzlehttp/guzzle": "^7.10",
         "monolog/monolog": "^2.8",
