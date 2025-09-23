@@ -5,8 +5,18 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use App\Services\FcmService;
 use Slim\App;
 use Medoo\Medoo;
+use App\Controllers\AuthController;
 
 return function (App $app, Medoo $db) {
+
+
+    $auth = new AuthController($db);
+
+    // === AUTH ===
+    $app->post('/auth/register', [$auth, 'register']);
+    $app->post('/auth/login', [$auth, 'login']);
+    $app->get('/auth/profile', [$auth, 'profile'])
+        ->add([$auth, 'authMiddleware']);
 
     // USERS
     $app->get('/db/users', function (Request $req, Response $res) use ($db) {
