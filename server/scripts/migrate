@@ -1,0 +1,4 @@
+#!/bin/bash
+
+/workspace/server/vendor/robmorgan/phinx/bin/phinx migrate -e dev \
+    -c /workspace/server/config/phinx.php
