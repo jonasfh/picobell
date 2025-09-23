@@ -24,14 +24,11 @@ class AuthController
         $data = $req->getParsedBody();
         $email = $data['email'] ?? null;
         $password = $data['password'] ?? null;
-        $username = $data['username'] ?? null;
-
-        if (!$email || !$password || !$username) {
+        if (!$email || !$password) {
             return $this->json($res, ['error' => 'Missing fields'], 400);
         }
 
         $this->db->insert("users", [
-            "username" => $username,
             "email" => $email,
             "password_hash" => password_hash($password, PASSWORD_BCRYPT),
             "created_at" => date("Y-m-d H:i:s"),
