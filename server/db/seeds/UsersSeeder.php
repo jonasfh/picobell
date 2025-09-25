@@ -10,7 +10,6 @@ final class UsersSeeder extends AbstractSeed
         $data = [
             [
                 'email' => 'testuser@example.com',
-                'username' => 'testuser',
                 'password_hash' => password_hash('secret123', PASSWORD_DEFAULT),
                 'created_at' => date('Y-m-d H:i:s'),
                 'modified_at' => date('Y-m-d H:i:s'),
