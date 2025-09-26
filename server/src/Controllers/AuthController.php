@@ -43,7 +43,6 @@ class AuthController
         $data = $req->getParsedBody();
         $email = $data['email'] ?? null;
         $password = $data['password'] ?? null;
-
         $user = $this->db->get("users", "*", ["email" => $email]);
         if (!$user || !password_verify($password, $user['password_hash'])) {
             return $this->json($res, ['error' => 'Invalid credentials'], 401);
