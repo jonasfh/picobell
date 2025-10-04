@@ -14,6 +14,7 @@ return function (App $app, Medoo $db) {
     $app->group('/auth', function ($group) use ($auth) {
         $group->post('/register', [$auth, 'register']);
         $group->post('/login', [$auth, 'login']);
+        $group->post('/google', [$auth, 'google']);
     });
 
     // === PROFILE (krever auth) ===

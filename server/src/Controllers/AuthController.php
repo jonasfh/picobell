@@ -7,6 +7,7 @@ use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use Google\Client as Google_Client;
 
 class AuthController
 {
@@ -16,7 +17,7 @@ class AuthController
     public function __construct(Medoo $db)
     {
         $this->db = $db;
-        $this->jwtSecret = $_ENV['JWT_SECRET'] ?? 'dev-secret-key';
+        $this->jwtSecret = getenv('JWT_SECRET');
     }
 
     public function register(Request $req, Response $res): Response
@@ -48,17 +49,43 @@ class AuthController
             return $this->json($res, ['error' => 'Invalid credentials'], 401);
         }
 
-        $payload = [
-            "sub" => $user['id'],
-            "email" => $user['email'],
-            "iat" => time(),
-            "exp" => time() + 3600 // 1 time
-        ];
-
-        $jwt = JWT::encode($payload, $this->jwtSecret, 'HS256');
-
+        $jwt = $this->createJwtForUser($user);
         return $this->json($res, ["token" => $jwt]);
     }
+    // Login with Google OAuth
+    public function google(Request $req, Response $res) {
+        $data = $req->getParsedBody();
+        $idToken = $data['id_token'] ?? null;
+
+        if (!$idToken) {
+            return $this->json($res, ["error" => "Missing id_token"], 400);
+        }
+
+        $client = new \Google_Client(['client_id' => $_ENV['GOOGLE_CLIENT_ID']]);
+        $payload = $client->verifyIdToken($idToken);
+
+        if (!$payload) {
+            return $this->json($res, ["error" => "Invalid Google token"], 401);
+        }
+
+        $email = $payload['email'];
+
+        // Hent eller opprett bruker
+        $user = $this->db->get("users", "*", ["email" => $email]);
+        if (!$user) {
+            $userId = $this->db->insert("users", [
+                "email" => $email,
+                "role" => "user",
+                "created_at" => date("Y-m-d H:i:s"),
+                "modified_at" => date("Y-m-d H:i:s")
+            ]);
+            $user = $this->db->get("users", "*", ["id" => $userId]);
+        }
+
+        $token = $this->createJwtForUser($user);
+        return $this->json($res, ["token" => $token]);
+    }
+
 
     public function profile(Request $req, Response $res): Response
     {
@@ -97,4 +124,25 @@ class AuthController
                 ->withHeader("Content-Type", "application/json");
         }
     }
+
+    private function createJwtForUser($user) {
+        $now = time();
+        $exp = $now + 3600; // Token gyldig i 1 time
+
+        $payload = [
+            'iat' => $now,
+            'exp' => $exp,
+            'sub' => $user['id'],
+            'email' => $user['email'],
+            'role' => $user['role'],
+        ];
+        error_log("Creating JWT for user ID {$user['id']} with payload: " . json_encode($payload));
+        error_log("Using JWT secret: " . $this->jwtSecret);
+        return \Firebase\JWT\JWT::encode(
+            $payload,
+            $this->jwtSecret,
+            'HS256'
+        );
+    }
+
 }
