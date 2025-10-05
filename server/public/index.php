@@ -25,6 +25,7 @@ $database = new Medoo([
 // === Opprett Slim-app ===
 $app = AppFactory::create();
 $app->addRoutingMiddleware();
+$app->addBodyParsingMiddleware();
 
 // Feilmeldinger styres av APP_ENV
 $displayErrorDetails = ($_ENV['APP_ENV'] ?? 'prod') === 'dev';

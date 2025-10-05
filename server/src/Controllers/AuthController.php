@@ -73,12 +73,14 @@ class AuthController
         // Hent eller opprett bruker
         $user = $this->db->get("users", "*", ["email" => $email]);
         if (!$user) {
-            $userId = $this->db->insert("users", [
+            $this->db->insert("users", [
                 "email" => $email,
                 "role" => "user",
                 "created_at" => date("Y-m-d H:i:s"),
                 "modified_at" => date("Y-m-d H:i:s")
             ]);
+
+            $userId = $this->db->id();   // <- dette gir deg faktisk ID-en
             $user = $this->db->get("users", "*", ["id" => $userId]);
         }
 
