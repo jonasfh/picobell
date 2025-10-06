@@ -31,7 +31,7 @@ Databasen er SQLite for utvikling, og lagres som default i `/tmp/dev.sqlite3`.
 ## Oversikt over endepunkter
 
 ```mermaid
-flowchart TD
+flowchart LR
     A["/auth"]
     A1["POST /auth/google"]
 
