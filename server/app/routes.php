@@ -29,7 +29,7 @@ return function (App $app, Medoo $db) {
 
             // // Hent apartments via koblingstabellen
             try {
-                $apartments = $db->select("apartments", 
+                $apartments = $db->select("apartments",
                     [
                         "[><]user_apartment" => [
                             "apartments.id" => "apartment_id",
@@ -160,4 +160,34 @@ return function (App $app, Medoo $db) {
         $res->getBody()->write(json_encode(['message' => 'Open command sent']));
         return $res->withHeader('Content-Type', 'application/json');
     });
+    // === DEVICE (krever auth) ===
+    $app->group('/devices', function ($group) use ($db) {
+        $group->post('/register', function (Request $req, Response $res) use ($db) {
+            $user = $req->getAttribute('user'); // fra JWT
+            $user = $db->get("users", "*", ["email" => $user['email']]);
+            $data = $req->getParsedBody();
+            $name = $data['device_name'] ?? null;
+            $token = $data['device_token'] ?? null;
+
+            if (!$name || !$token) {
+                return $res->withStatus(400)
+                    ->withHeader('Content-Type', 'application/json')
+                    ->getBody()->write(json_encode(['error' => 'Missing device_name or device_token']));
+            }
+
+            $db->insert('devices', [
+                'user_id' => $user['id'],
+                'name' => $name,
+                'token' => $token,
+                'created_at' => date("Y-m-d H:i:s"),
+                'modified_at' => date("Y-m-d H:i:s")
+            ]);
+
+            $res->getBody()->write(json_encode([
+                'message' => 'Device registered',
+                'id' => $db->id()
+            ]));
+            return $res->withHeader('Content-Type', 'application/json');
+        });
+    })->add([$auth, 'authMiddleware']);
 };

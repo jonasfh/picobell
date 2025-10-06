@@ -89,11 +89,6 @@ class AuthController
     }
 
 
-    public function profile(Request $req, Response $res): Response
-    {
-        $user = $req->getAttribute("user");
-        return $this->json($res, $user);
-    }
 
     private function json(Response $res, $data, int $status = 200): Response
     {
