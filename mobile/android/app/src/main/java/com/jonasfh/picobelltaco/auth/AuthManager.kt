@@ -6,6 +6,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.jonasfh.picobelltaco.BuildConfig
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -19,7 +20,7 @@ class AuthManager(private val context: Context) {
 
     private val gso = GoogleSignInOptions.Builder(
         GoogleSignInOptions.DEFAULT_SIGN_IN
-    ).requestIdToken("<CLIENT_ID>.apps.googleusercontent.com")
+    ).requestIdToken("${BuildConfig.OAUTH2_CLIENT_ID}.apps.googleusercontent.com")
         .requestEmail()
         .build()
 
@@ -28,7 +29,7 @@ class AuthManager(private val context: Context) {
 
     suspend fun handleSignInResult(account: GoogleSignInAccount): String? {
         val idToken = account.idToken ?: return null
-        val url = "https://<yourserver>/auth/google"
+        val url = "${BuildConfig.SERVER_URL}/auth/google"
 
         val body = JSONObject().put("token", idToken).toString()
             .toRequestBody("application/json".toMediaType())
@@ -49,7 +50,7 @@ class AuthManager(private val context: Context) {
     }
 
     suspend fun registerDevice(jwt: String, fcmToken: String): Boolean {
-        val url = "https://<yourserver>/profile/devices/register"
+        val url = "${BuildConfig.SERVER_URL}/profile/devices/register"
 
         val body = JSONObject()
             .put("fcm_token", fcmToken)

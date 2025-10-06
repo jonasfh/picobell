@@ -14,6 +14,8 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+        buildConfigField("String", "SERVER_URL", "\"https://picobell.no\"")
+        buildConfigField("String", "OAUTH2_CLIENT_ID", "\"1032602808859-caseq5la6g63hjvgdq52evd50sj5ph81\"")
     }
 
     buildTypes {
@@ -29,6 +31,9 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+    buildFeatures {
+        buildConfig = true
     }
 }
 
