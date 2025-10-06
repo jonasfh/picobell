@@ -75,7 +75,7 @@ class AuthController
         if (!$user) {
             $this->db->insert("users", [
                 "email" => $email,
-                "role" => "user",
+                "role" => "member",
                 "created_at" => date("Y-m-d H:i:s"),
                 "modified_at" => date("Y-m-d H:i:s")
             ]);
