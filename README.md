@@ -1,6 +1,6 @@
 # PicoBell Doorbell Project
 
-Prosjekt for å gjøre eksisterende porttelefon smartere.   Målet er å kunne motta ringesignaler på mobil, og åpne døren fra en egen app – uten å miste dagens funksjonalitet.  
+Prosjekt for å gjøre eksisterende porttelefon smartere.   Målet er å kunne motta ringesignaler på mobil, og åpne døren fra en egen app – uten å miste dagens funksjonalitet.
 
 Se [docs](docs/) for detaljert dokumentasjon.
 
@@ -29,6 +29,52 @@ Se [docs](docs/) for detaljert dokumentasjon.
     │
     └── .gitignore
 
+## Systemoversikt
+
+```mermaid
+flowchart LR
+    subgraph Mobile["Android app"]
+        M1["Bruker logger inn med Google"]
+        M2["Får JWT fra server"]
+        M3["Kaller /profile-endepunkter"]
+    end
+
+    subgraph Web["Web (test/cli)"]
+        W1["Kan kalle auth/google"]
+        W2["Kan teste med JWT"]
+    end
+
+    subgraph Server["Picobell server (Slim/PHP)"]
+        S1["AuthController"]
+        S2["ProfileController"]
+        S3["DevicesController"]
+        S4["ApartmentsController"]
+        S5["AdminController"]
+    end
+
+    subgraph DB["SQLite (dev) / Postgres (prod senere?)"]
+        D1["users"]
+        D2["devices"]
+        D3["apartments"]
+        D4["user_apartment (role)"]
+    end
+
+    M1 --> S1
+    W1 --> S1
+    S1 --> D1
+    S1 --> M2
+    S1 --> W2
+    M3 --> S2
+    M3 --> S3
+    M3 --> S4
+    S2 --> D1
+    S3 --> D2
+    S4 --> D3
+    S4 --> D4
+    S5 --> D1
+    S5 --> D2
+    S5 --> D3
+```
 
 ## Arkitektur (oversikt)
 
@@ -63,7 +109,7 @@ flowchart LR
 
 ## Database
 
-Det er behov for en database for følgende oppgaver: 
+Det er behov for en database for følgende oppgaver:
 
 * Registrering av brukere
 * Registrering av leiligheter/picoer
@@ -129,3 +175,28 @@ erDiagram
 * Server kjører med TLS (nginx som reverse proxy).
 * Push-varsler håndteres via Firebase (Android) og evt. APNs (iOS).
 * API autentisering med tokens (JWT eller lignende).
+
+## Authentisering
+
+```mermaid
+sequenceDiagram
+    participant U as User (Android/Web)
+    participant G as Google OAuth
+    participant S as Picobell Server
+    participant DB as Database
+
+    U->>G: Login with Google
+    G-->>U: Google ID token
+    U->>S: POST /auth/google (ID token)
+    S->>G: Verify ID token
+    G-->>S: Token valid + user info
+    S->>DB: Lookup user by email
+    DB-->>S: User found or new created
+    S-->>U: JWT (id, email, role)
+
+    U->>S: Call protected endpoint (with Bearer JWT)
+    S->>S: Verify JWT signature
+    S->>DB: (optional) fetch user details
+    DB-->>S: User info
+    S-->>U: Response
+```
