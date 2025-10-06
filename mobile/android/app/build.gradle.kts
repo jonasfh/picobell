@@ -37,4 +37,7 @@ dependencies {
     implementation("com.google.android.material:material:1.9.0")
     implementation("androidx.emoji:emoji-bundled:1.1.0")
     implementation("com.google.firebase:firebase-messaging:23.3.1")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }
