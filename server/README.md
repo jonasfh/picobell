@@ -27,3 +27,33 @@ Databasen er SQLite for utvikling, og lagres som default i `/tmp/dev.sqlite3`.
 * Velg Google OAuth2 API v2 → https://www.googleapis.com/auth/userinfo.email.
 * Klikk deg gjennom flowen → du får et ID Token under "Step 2".
 * Kopiér det og bruk i Postman når du tester POST /auth/google-login.
+
+## Oversikt over endepunkter
+
+```mermaid
+flowchart TD
+    A["/auth"]
+    A1["POST /auth/google"]
+
+    B["/profile"]
+    B1["GET /profile"]
+    B2["/profile/devices"]
+    B21["GET /profile/devices"]
+    B22["POST /profile/devices/register"]
+    B3["/profile/apartments"]
+    B31["GET /profile/apartments"]
+    B32["POST /profile/apartments"]
+
+    C["/admin"]
+    C1["..."]
+
+    A --> A1
+    B --> B1
+    B --> B2
+    B2 --> B21
+    B2 --> B22
+    B --> B3
+    B3 --> B31
+    B3 --> B32
+    C --> C1
+```
