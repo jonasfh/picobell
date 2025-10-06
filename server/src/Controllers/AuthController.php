@@ -104,23 +104,65 @@ class AuthController
         $authHeader = $req->getHeaderLine("Authorization");
         if (!$authHeader || !str_starts_with($authHeader, "Bearer ")) {
             $response = new \Slim\Psr7\Response();
-            $response->getBody()->write(json_encode(["error" => "Missing token"]));
+            $response->getBody()->write(json_encode([
+                "error" => "Missing token"
+            ]));
             return $response->withStatus(401)
                 ->withHeader("Content-Type", "application/json");
         }
 
         $jwt = substr($authHeader, 7);
         try {
-            $decoded = JWT::decode($jwt, new Key($this->jwtSecret, 'HS256'));
-            $req = $req->withAttribute("user", (array) $decoded);
+            $decoded = JWT::decode(
+                $jwt,
+                new Key($this->jwtSecret, 'HS256')
+            );
+
+            // Konverter til array
+            $user = (array) $decoded;
+
+            # get user from DB to get more details like role
+            $user = $this->db->get(
+                "users", ["id", "email", "role"], ["email" => $user['email']]
+            );
+            if (!$user) {
+                $response = new \Slim\Psr7\Response();
+                $response->getBody()->write(json_encode([
+                    "error" => "User not found"
+                ]));
+                return $response->withStatus(401)
+                    ->withHeader("Content-Type", "application/json");
+            }
+            // Legg user på request så routes kan bruke den
+            $req = $req->withAttribute("user", $user);
+
+            // Hvis kall går mot /admin/*
+            $uriPath = $req->getUri()->getPath();
+            if (str_starts_with($uriPath, "admin/") ||
+                str_starts_with($uriPath, "/admin/")) {
+                if (($user["role"] ?? null) !== "admin") {
+                    $response = new \Slim\Psr7\Response();
+                    $response->getBody()->write(json_encode([
+                        "error" => "Forbidden: admin access required"
+                    ]));
+                    return $response->withStatus(403)
+                        ->withHeader("Content-Type", "application/json");
+                }
+            }
+
             return $handler->handle($req);
+
         } catch (\Throwable $e) {
+            error_log("JWT decode error: " . $e->getMessage());
             $response = new \Slim\Psr7\Response();
-            $response->getBody()->write(json_encode(["error" => "Invalid token"]));
+            $response->getBody()->write(json_encode([
+                "error" => "Invalid token"
+            ]));
             return $response->withStatus(401)
                 ->withHeader("Content-Type", "application/json");
         }
     }
+
 
     private function createJwtForUser($user) {
         $now = time();
