@@ -24,21 +24,22 @@ return function (App $app, Medoo $db) {
         $group->post('/google', [$auth, 'google']);
     });
 
-    // === PROFILE ===
-    $app->group('/profile', function ($group) use ($profile) {
+// === PROFILE ===
+    $app->group('/profile', function ($group) use ($profile, $devices, $apartments) {
+        // Henter brukers egen profil
         $group->get('', [$profile, 'getProfile']);
-    })->add([$auth, 'authMiddleware']);
 
-    // === DEVICES ===
-    $app->group('/devices', function ($group) use ($devices) {
-        $group->get('', [$devices, 'list']);
-        $group->post('/register', [$devices, 'register']);
-    })->add([$auth, 'authMiddleware']);
+        // Devices under /profile/devices
+        $group->group('/devices', function ($sub) use ($devices) {
+            $sub->get('', [$devices, 'list']);
+            $sub->post('/register', [$devices, 'register']);
+        });
 
-    // === APARTMENTS ===
-    $app->group('/apartments', function ($group) use ($apartments) {
-        $group->get('', [$apartments, 'list']);
-        $group->post('', [$apartments, 'create']);
+        // Apartments under /profile/apartments
+        $group->group('/apartments', function ($sub) use ($apartments) {
+            $sub->get('', [$apartments, 'list']);
+            $sub->post('', [$apartments, 'create']);
+        });
     })->add([$auth, 'authMiddleware']);
 
     // === ADMIN ===
