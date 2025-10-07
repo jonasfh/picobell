@@ -7,12 +7,13 @@ import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.jonasfh.picobelltaco.BuildConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-
 
 class AuthManager(private val context: Context) {
 
@@ -20,53 +21,83 @@ class AuthManager(private val context: Context) {
 
     private val gso = GoogleSignInOptions.Builder(
         GoogleSignInOptions.DEFAULT_SIGN_IN
-    ).requestIdToken("${BuildConfig.OAUTH2_CLIENT_ID}.apps.googleusercontent.com")
+    ).requestIdToken(BuildConfig.OAUTH2_CLIENT_ID)
         .requestEmail()
         .build()
 
     val signInClient: GoogleSignInClient =
         GoogleSignIn.getClient(context, gso)
 
-    suspend fun handleSignInResult(account: GoogleSignInAccount): String? {
-        val idToken = account.idToken ?: return null
-        val url = "${BuildConfig.SERVER_URL}/auth/google"
+    suspend fun handleSignInResult(account: GoogleSignInAccount): String? =
+        withContext(Dispatchers.IO) {
+            try {
+                val idToken = account.idToken
+                Log.d("AUTH", "Got ID token: ${idToken?.take(20)}...")
 
-        val body = JSONObject().put("token", idToken).toString()
-            .toRequestBody("application/json".toMediaType())
+                if (idToken == null) {
+                    Log.e("AUTH", "No ID token in Google account")
+                    return@withContext null
+                }
 
-        val req = Request.Builder()
-            .url(url)
-            .post(body)
-            .build()
+                val url = "${BuildConfig.SERVER_URL}/auth/google"
+                Log.d("AUTH", "Posting token to $url")
 
-        client.newCall(req).execute().use { res ->
-            if (!res.isSuccessful) {
-                Log.e("AUTH", "Login failed: ${res.code}")
-                return null
+                val body = JSONObject().put("id_token", idToken).toString()
+                    .toRequestBody("application/json".toMediaType())
+                Log.d("AUTH", JSONObject().put("id_token", idToken).toString())
+                val req = Request.Builder()
+                    .url(url)
+                    .post(body)
+                    .build()
+
+                client.newCall(req).execute().use { res ->
+                    val bodyStr = res.body?.string()
+                    Log.d("AUTH", "Response ${res.code}: $bodyStr")
+
+                    if (!res.isSuccessful) {
+                        Log.e("AUTH", "Login failed: ${res.code}")
+                        return@withContext null
+                    }
+
+                    val json = JSONObject(bodyStr ?: "")
+                    val jwt = json.optString("token")
+                    Log.d("AUTH", "Received JWT: ${jwt.take(20)}...")
+                    return@withContext jwt
+                }
+            } catch (e: Exception) {
+                Log.e("AUTH", "Sign-in error", e)
+                return@withContext null
             }
-            val json = JSONObject(res.body?.string() ?: "")
-            return json.optString("token") // f.eks. JWT fra backend
         }
-    }
 
-    suspend fun registerDevice(jwt: String, fcmToken: String): Boolean {
-        val url = "${BuildConfig.SERVER_URL}/profile/devices/register"
+    suspend fun registerDevice(jwt: String, fcmToken: String): Boolean =
+        withContext(Dispatchers.IO) {
+            Log.d("DEVICE", "FCM: ${fcmToken.take(10)}... JWT ${jwt.take(10)}...")
+            try {
+                val url = "${BuildConfig.SERVER_URL}/profile/devices/register"
+                Log.d("DEVICE", "Registering device at $url")
+                Log.d("DEVICE", "Device name: ${android.os.Build.MANUFACTURER} - ${android.os.Build.MODEL}")
+                val body = JSONObject()
+                    .put("token", fcmToken)
+                    .put("name", "${android.os.Build.MANUFACTURER} - ${android.os.Build.MODEL}")
+                    .toString()
+                    .toRequestBody("application/json".toMediaType())
 
-        val body = JSONObject()
-            .put("fcm_token", fcmToken)
-            .put("device_model", android.os.Build.MODEL)
-            .toString()
-            .toRequestBody("application/json".toMediaType())
+                val req = Request.Builder()
+                    .url(url)
+                    .addHeader("Authorization", "Bearer $jwt")
+                    .post(body)
+                    .build()
 
-        val req = Request.Builder()
-            .url(url)
-            .addHeader("Authorization", "Bearer $jwt")
-            .post(body)
-            .build()
-
-        client.newCall(req).execute().use { res ->
-            return res.isSuccessful
+                client.newCall(req).execute().use { res ->
+                    val success = res.isSuccessful
+                    val responseBody = res.body?.string()
+                    Log.d("DEVICE", "Response ${res.code}: $responseBody")
+                    return@withContext success
+                }
+            } catch (e: Exception) {
+                Log.e("DEVICE", "Device registration failed", e)
+                return@withContext false
+            }
         }
-    }
-
 }

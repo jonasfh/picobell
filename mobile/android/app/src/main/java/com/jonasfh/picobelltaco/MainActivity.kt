@@ -63,7 +63,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             } catch (e: ApiException) {
-                Log.e("Auth", "Google sign-in failed", e)
+                Log.e("AUTH", "Google sign-in failed", e)
             }
         }
 

@@ -15,7 +15,7 @@ android {
         versionCode = 1
         versionName = "1.0"
         buildConfigField("String", "SERVER_URL", "\"https://picobell.no\"")
-        buildConfigField("String", "OAUTH2_CLIENT_ID", "\"1032602808859-caseq5la6g63hjvgdq52evd50sj5ph81\"")
+        buildConfigField("String", "OAUTH2_CLIENT_ID", "\"1032602808859-892rqn0vi2i963d1n65d3kpsimi37nrk.apps.googleusercontent.com\"")
     }
 
     buildTypes {
