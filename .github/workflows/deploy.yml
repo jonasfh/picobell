@@ -60,9 +60,7 @@ jobs:
           ENVCONFIGDIR="$ENV/server/config"
           mkdir -p $ENVCONFIGDIR
           ENVCONFIGPATH="$ENVCONFIGDIR/.env"
-          # Add google service account content to SERVICE_ACCOUNT_PATH
-          echo "$GOOGLE_SERVICE_ACCOUNT" > "$ENV/server/$SERVICE_ACCOUNT_PATH"
-          chmod 600 "$ENV/server/$SERVICE_ACCOUNT_PATH"
+          SERVICE_ACCOUNT_FILE="$ENV/server/$SERVICE_ACCOUNT_PATH"
 
           BRANCH="${{ github.ref_name }}"
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -87,6 +85,9 @@ jobs:
           echo "$ENV_CONTENT" | ssh -i ~/.ssh/id_rsa $USERNAME@$SERVER \
             "set -e && cat > $ENVCONFIGPATH && chmod 600 $ENVCONFIGPATH"
 
+          # Add google service account content to SERVICE_ACCOUNT_PATH
+          echo "$GOOGLE_SERVICE_ACCOUNT" | ssh -i ~/.ssh/id_rsa $USERNAME@$SERVER \
+            "set -e && cat > $SERVICE_ACCOUNT_FILE && chmod 600 $SERVICE_ACCOUNT_FILE"
 
           COMMANDS=$(cat <<ENDSSH
             set -e
