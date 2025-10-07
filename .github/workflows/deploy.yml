@@ -61,7 +61,7 @@ jobs:
           ENVCONFIGPATH="$ENVCONFIGDIR/.env"
           # Add google service account content to SERVICE_ACCOUNT_PATH
           echo "$GOOGLE_SERVICE_ACCOUNT" > "$ENV/server/$SERVICE_ACCOUNT_PATH"
-          chmod 600 $SERVICE_ACCOUNT_PATH
+          chmod 600 "$ENV/server/$SERVICE_ACCOUNT_PATH"
 
           BRANCH="${{ github.ref_name }}"
           if [ "${{ github.event_name }}" = "pull_request" ]; then
