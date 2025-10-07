@@ -53,5 +53,5 @@ return function (App $app, Medoo $db) {
     $app->group('/doorbell', function ($group) use ($doorbell) {
         $group->post('/ring', [$doorbell, 'ring']);
         $group->post('/open', [$doorbell, 'open']);
-    });
+    })->add([$auth, 'authMiddleware']);
 };

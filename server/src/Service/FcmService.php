@@ -18,7 +18,6 @@ class FcmService
         if (!file_exists($serviceAccountPath)) {
             throw new \RuntimeException("Service account file not found: $serviceAccountPath");
         }
-        var_dump(file_get_contents($serviceAccountPath));
         $this->credentials = new ServiceAccountCredentials(
             ['https://www.googleapis.com/auth/firebase.messaging'],
             $serviceAccountPath
@@ -40,25 +39,38 @@ class FcmService
 
     public function sendNotification(string $token, string $title, string $body): array
     {
-        $accessToken = $this->getAccessToken();
-        $url = sprintf('projects/%s/messages:send', $this->projectId);
+        try {
+            $accessToken = $this->getAccessToken();
+            $url = sprintf('projects/%s/messages:send', $this->projectId);
 
-        $response = $this->client->post($url, [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $accessToken,
-                'Content-Type'  => 'application/json',
-            ],
-            'json' => [
-                'message' => [
-                    'token' => $token,
-                    'notification' => [
-                        'title' => $title,
-                        'body'  => $body,
+            $response = $this->client->post($url, [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $accessToken,
+                    'Content-Type'  => 'application/json',
+                ],
+                'json' => [
+                    'message' => [
+                        'token' => $token,
+                        'notification' => [
+                            'title' => $title,
+                            'body'  => $body,
+                        ],
                     ],
                 ],
-            ],
-        ]);
+            ]);
 
-        return json_decode((string)$response->getBody(), true);
+            $data = json_decode((string)$response->getBody(), true);
+
+            return [
+                'success' => true,
+                'status' => $response->getStatusCode(),
+                'messageId' => $data['name'] ?? null,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
     }
 }
