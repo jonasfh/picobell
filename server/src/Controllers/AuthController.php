@@ -102,6 +102,7 @@ class AuthController
     public function authMiddleware(Request $req, $handler): Response
     {
         $authHeader = $req->getHeaderLine("Authorization");
+
         if (!$authHeader || !str_starts_with($authHeader, "Bearer ")) {
             $response = new \Slim\Psr7\Response();
             $response->getBody()->write(json_encode([
@@ -176,7 +177,6 @@ class AuthController
             'role' => $user['role'],
         ];
         error_log("Creating JWT for user ID {$user['id']} with payload: " . json_encode($payload));
-        error_log("Using JWT secret: " . $this->jwtSecret);
         return \Firebase\JWT\JWT::encode(
             $payload,
             $this->jwtSecret,

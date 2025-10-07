@@ -20,6 +20,7 @@ env:
   DB_USER: ${{ vars.DB_USER }}
   FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
   SERVICE_ACCOUNT_PATH: ${{ vars.SERVICE_ACCOUNT_PATH }}
+  GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
   # Secrets
   SSH_KEY: ${{ secrets.SSH_KEY }}
   DB_PASS: ${{ secrets.DB_PASS }}
@@ -80,6 +81,7 @@ jobs:
             SERVICE_ACCOUNT_PATH=$SERVICE_ACCOUNT_PATH
             EMULATOR_DEVICE_TEST_TOKEN=$EMULATOR_DEVICE_TEST_TOKEN
             JWT_SECRET=$JWT_SECRET
+            GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
           EOF
           )
           echo "$ENV_CONTENT" | ssh -i ~/.ssh/id_rsa $USERNAME@$SERVER \
