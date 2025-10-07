@@ -78,8 +78,8 @@ class AuthManager(private val context: Context) {
                 Log.d("DEVICE", "Registering device at $url")
                 Log.d("DEVICE", "Device name: ${android.os.Build.MANUFACTURER} - ${android.os.Build.MODEL}")
                 val body = JSONObject()
-                    .put("token", fcmToken)
-                    .put("name", "${android.os.Build.MANUFACTURER} - ${android.os.Build.MODEL}")
+                    .put("device_token", fcmToken)
+                    .put("device_name", "${android.os.Build.MANUFACTURER} - ${android.os.Build.MODEL}")
                     .toString()
                     .toRequestBody("application/json".toMediaType())
 
