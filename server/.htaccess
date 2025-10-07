@@ -14,9 +14,6 @@ Options -Indexes
 
   # return 403 for config folder access
   RewriteRule ^config/ - [F,L]
-  # Use the Authorization header for PHP
-  RewriteCond %{HTTP:Authorization} ^(.*)
-  RewriteRule .* - [e=HTTP_AUTHORIZATION:%1]
 
   # Redirect to HTTPS
   # RewriteEngine On

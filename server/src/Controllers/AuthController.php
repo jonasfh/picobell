@@ -105,8 +105,6 @@ class AuthController
 
         if (!$authHeader || !str_starts_with($authHeader, "Bearer ")) {
             error_log("Missing or invalid Authorization header");
-            error_log("Auth Header: " . substr($authHeader, 0, 20));
-            error_log("All headers: " . json_encode(getallheaders()));
             $response = new \Slim\Psr7\Response();
             $response->getBody()->write(json_encode([
                 "error" => "Missing token",
