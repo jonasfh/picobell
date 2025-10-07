@@ -24,6 +24,8 @@ env:
   SSH_KEY: ${{ secrets.SSH_KEY }}
   DB_PASS: ${{ secrets.DB_PASS }}
   EMULATOR_DEVICE_TEST_TOKEN: ${{ secrets.EMULATOR_DEVICE_TEST_TOKEN }}
+  JWT_SECRET: ${{ secrets.JWT_SECRET }}
+  GOOGLE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
 
 
 jobs:
@@ -57,6 +59,9 @@ jobs:
           ENVCONFIGDIR="$ENV/server/config"
           mkdir -p $ENVCONFIGDIR
           ENVCONFIGPATH="$ENVCONFIGDIR/.env"
+          # Add google service account content to SERVICE_ACCOUNT_PATH
+          echo "$GOOGLE_SERVICE_ACCOUNT" > "$ENV/server/$SERVICE_ACCOUNT_PATH"
+          chmod 600 $SERVICE_ACCOUNT_PATH
 
           BRANCH="${{ github.ref_name }}"
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -74,6 +79,7 @@ jobs:
             FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID
             SERVICE_ACCOUNT_PATH=$SERVICE_ACCOUNT_PATH
             EMULATOR_DEVICE_TEST_TOKEN=$EMULATOR_DEVICE_TEST_TOKEN
+            JWT_SECRET=$JWT_SECRET
           EOF
           )
           echo "$ENV_CONTENT" | ssh -i ~/.ssh/id_rsa $USERNAME@$SERVER \
