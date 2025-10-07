@@ -104,10 +104,11 @@ class AuthController
         $authHeader = $req->getHeaderLine("Authorization");
 
         if (!$authHeader || !str_starts_with($authHeader, "Bearer ")) {
+            error_log("Missing or invalid Authorization header");
+            error_log("Auth Header: " . substr($authHeader, 0, 20));
             $response = new \Slim\Psr7\Response();
             $response->getBody()->write(json_encode([
                 "error" => "Missing token",
-                "context" => substr($authHeader, 0, 30)
              ]));
             return $response->withStatus(401)
                 ->withHeader("Content-Type", "application/json");
