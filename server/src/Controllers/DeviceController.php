@@ -19,28 +19,51 @@ class DeviceController {
         $userAttr = $req->getAttribute('user');
         $user = $this->db->get("users", "*", ["email" => $userAttr['email']]);
         $data = $req->getParsedBody();
-        $name = $data['device_name'] ?? null;
         $token = $data['device_token'] ?? null;
+        $name  = $data['device_name'] ?? null;
 
-        if (!$name || !$token) {
+        if (!$token) {
             $res->getBody()->write(json_encode([
-                'error' => 'Missing device_name or device_token'
+                'error' => 'Missing device_token'
             ]));
             return $res->withStatus(400)
-                ->withHeader('Content-Type', 'application/json');
+                       ->withHeader('Content-Type', 'application/json');
         }
 
-        $this->db->insert("devices", [
+        $now = date("Y-m-d H:i:s");
+
+        // Sjekk om device med samme token allerede finnes for brukeren
+        $existing = $this->db->get("devices", "*", [
             "user_id" => $user['id'],
-            "name" => $name,
-            "token" => $token,
-            "created_at" => date("Y-m-d H:i:s"),
-            "modified_at" => date("Y-m-d H:i:s")
+            "token" => $token
         ]);
 
+        if ($existing) {
+            $this->db->update("devices", [
+                "name" => $name ?? $existing['name'],
+                "last_seen" => $now,
+                "modified_at" => $now
+            ], ["id" => $existing['id']]);
+
+            $deviceId = $existing['id'];
+            $message = 'Device updated';
+        } else {
+            $this->db->insert("devices", [
+                "user_id" => $user['id'],
+                "name" => $name,
+                "token" => $token,
+                "last_seen" => $now,
+                "created_at" => $now,
+                "modified_at" => $now
+            ]);
+
+            $deviceId = $this->db->id();
+            $message = 'Device registered';
+        }
+
         $res->getBody()->write(json_encode([
-            'message' => 'Device registered',
-            'id' => $this->db->id()
+            'message' => $message,
+            'id' => $deviceId
         ]));
         return $res->withHeader('Content-Type', 'application/json');
     }
