@@ -59,6 +59,7 @@ class MainActivity : AppCompatActivity() {
                     val jwt = authManager.handleSignInResult(account)
                     val fcmToken = getFcmToken()
                     if (jwt != null && fcmToken != null) {
+                        Log.d("DEVICE", "fcmToken: $fcmToken")
                         authManager.registerDevice(jwt, fcmToken)
                     }
                 }

@@ -44,7 +44,6 @@ class AuthManager(private val context: Context) {
 
                 val body = JSONObject().put("id_token", idToken).toString()
                     .toRequestBody("application/json".toMediaType())
-                Log.d("AUTH", JSONObject().put("id_token", idToken).toString())
                 val req = Request.Builder()
                     .url(url)
                     .post(body)
@@ -72,7 +71,6 @@ class AuthManager(private val context: Context) {
 
     suspend fun registerDevice(jwt: String, fcmToken: String): Boolean =
         withContext(Dispatchers.IO) {
-            Log.d("DEVICE", "FCM: ${fcmToken.take(10)}... JWT ${jwt.take(10)}...")
             try {
                 val url = "${BuildConfig.SERVER_URL}/profile/devices/register"
                 Log.d("DEVICE", "Registering device at $url")
