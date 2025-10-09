@@ -35,7 +35,7 @@ jobs:
     strategy:
       matrix:
         environment:
-          - dev
+          # - dev
           - prod
       fail-fast: true
     environment: ${{ matrix.environment }}
