@@ -37,7 +37,7 @@ class FcmService
         return $token['access_token'];
     }
 
-    public function sendNotification(string $token, string $title, string $body): array
+    public function sendNotification(string $token, string $title, string $body, array $data): array
     {
         try {
             $accessToken = $this->getAccessToken();
@@ -55,6 +55,7 @@ class FcmService
                             'title' => $title,
                             'body'  => $body,
                         ],
+                        'data' => $data,
                     ],
                 ],
             ]);

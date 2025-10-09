@@ -64,7 +64,8 @@ class DoorbellController
                 $result = $this->fcm->sendNotification(
                     $d['token'],
                     'Ring på døra!',
-                    'Noen står utenfor ' . ($apartment['name'] ?? 'inngangen') . ' 🚪🔔'
+                    'Noen står utenfor ' . ($apartment['name'] ?? 'inngangen') . ' 🚪🔔',
+                    ['apartment_id' => (string)$apartment['id']] // Send apartment_id as string in data payload
                 );
 
                 // Firebase returnerer vanligvis {"name": "..."} ved suksess
