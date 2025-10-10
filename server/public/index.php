@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Application\Settings\EnvLoader;
 use Slim\Factory\AppFactory;
 use Medoo\Medoo;
+use App\Middleware\LogMiddleware;
 
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -30,6 +31,9 @@ $app->addBodyParsingMiddleware();
 // Feilmeldinger styres av APP_ENV
 $displayErrorDetails = ($_ENV['APP_ENV'] ?? 'prod') === 'dev';
 $app->addErrorMiddleware($displayErrorDetails, true, true);
+
+// === Legg til logging-middleware ===
+$app->add(new LogMiddleware($database));
 
 // === Eksempel: bruk av DB i en route ===
 $app->get('/health', function ($request, $response) use ($database) {
