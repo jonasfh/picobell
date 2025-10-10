@@ -3,98 +3,153 @@ namespace App\Controllers;
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
-use App\Service\FcmService;
 use Medoo\Medoo;
+use App\Service\FcmService;
+use Error;
 
 class DoorbellController
 {
     private Medoo $db;
-    private FcmService $fcm;
 
     public function __construct(Medoo $db)
     {
         $this->db = $db;
-        $this->fcm = new FcmService(
-            getenv('FIREBASE_PROJECT_ID'),
-            __DIR__ . '/../../' . getenv('SERVICE_ACCOUNT_PATH')
-        );
     }
 
+    // === POST /doorbell/ring ===
     public function ring(Request $req, Response $res): Response
     {
         $body = $req->getParsedBody();
-        $serial = $body['pico_serial'] ?? null;
-
-        if (!$serial) {
-            return $this->error($res, 'Missing pico_serial', 400);
+        $picoSerial = $body['pico_serial'] ?? null;
+        if (!$picoSerial) {
+            return $this->jsonError($res, 'Missing pico_serial', 400);
         }
 
-        // Finn leiligheten som Pico hører til
-        $apartment = $this->db->get("apartments", "*", [
-            "pico_serial" => $serial
+        // Registrer ny doorbell event
+        $this->db->insert('doorbell_events', [
+            'pico_serial' => $picoSerial,
         ]);
 
+        // Finn apartment knyttet til pico
+        $apartment = $this->db->get('apartments', '*', [
+            'pico_serial' => $picoSerial,
+        ]);
         if (!$apartment) {
-            return $this->error($res, 'Unknown pico_serial', 404);
+            return $this->jsonError($res, 'Unknown pico_serial', 404);
         }
 
-        // Finn alle brukere koblet til denne leiligheten via pivot-tabellen
-        $userIds = $this->db->select("user_apartment", "user_id", [
-            "apartment_id" => $apartment['id']
+        // Finn brukere og deres aktive devices
+        $userIds = $this->db->select('user_apartment', 'user_id', [
+            'apartment_id' => $apartment['id'],
+        ]);
+        $devices = $this->db->select('devices', 'token', [
+            'user_id' => $userIds,
         ]);
 
-        if (empty($userIds)) {
-            return $this->error($res, 'No users linked to apartment', 404);
-        }
+        if (!empty($devices)) {
+            $fcm = new FcmService(
+                getenv('FIREBASE_PROJECT_ID'),
+                __DIR__ . '/../../' . getenv('SERVICE_ACCOUNT_PATH')
+            );
 
-        // Finn alle aktive devices for disse brukerne
-        $devices = $this->db->select("devices", ["token"], [
-            "user_id" => $userIds
-        ]);
-
-        if (empty($devices)) {
-            return $this->error($res, 'No active devices for this apartment', 404);
-        }
-
-        $sent = 0;
-        $failed = 0;
-
-        foreach ($devices as $d) {
-            try {
-                $result = $this->fcm->sendNotification(
-                    $d['token'],
+            foreach ($devices as $token) {
+                $fcm->sendNotification(
+                    $token,
                     'Ring på døra!',
-                    'Noen står utenfor ' . ($apartment['name'] ?? 'inngangen') . ' 🚪🔔',
-                    ['apartment_id' => (string)$apartment['id']] // Send apartment_id as string in data payload
+                    'Noen står utenfor 🚪🔔',
+                    ['apartment_id' => $apartment['id']]
                 );
-
-                // Firebase returnerer vanligvis {"name": "..."} ved suksess
-                if (!empty($result['name'])) {
-                    $sent++;
-                } else {
-                    $failed++;
-                }
-            } catch (\Throwable $e) {
-                error_log("FCM send failed: " . $e->getMessage());
-                $failed++;
             }
         }
 
-        $payload = [
-            'message' => 'Notifications sent',
-            'apartment_id' => $apartment['id'],
-            'sent' => $sent,
-            'failed' => $failed,
-        ];
-
-        $res->getBody()->write(json_encode($payload, JSON_UNESCAPED_UNICODE));
-        return $res->withHeader('Content-Type', 'application/json');
+        return $this->json($res, [
+            'status' => 'notified',
+            'device_count' => count($devices),
+        ]);
     }
 
-    private function error(Response $res, string $msg, int $code): Response
+    // === POST /doorbell/open ===
+    public function open(Request $req, Response $res): Response
     {
-        $res->getBody()->write(json_encode(['error' => $msg]));
-        return $res->withStatus($code)
+        $userAttr = $req->getAttribute('user');
+        $userId = $userAttr['id'] ?? null;
+        if (!$userId) {
+            return $this->jsonError($res, 'Unauthorized', 401);
+        }
+
+        // Finn brukerens apartment
+        $apartmentId = $this->db->get('user_apartment', 'apartment_id', [
+            'user_id' => $userId,
+        ]);
+        if (!$apartmentId) {
+            return $this->jsonError($res, 'No apartment linked', 404);
+        }
+
+        // Finn siste doorbell-event for apartment
+        $picoSerial = $this->db->get('apartments', 'pico_serial', [
+            'id' => $apartmentId,
+        ]);
+        if (!$picoSerial) {
+            return $this->jsonError($res, 'No pico for apartment', 404);
+        }
+
+        $event = $this->db->get('doorbell_events', '*', [
+            'pico_serial' => $picoSerial,
+            'ORDER' => ['created_at' => 'DESC'],
+        ]);
+        if (!$event) {
+            return $this->jsonError($res, 'No active ring found', 404);
+        }
+
+        // Sett open_requested = true
+        $this->db->update('doorbell_events', [
+            'open_requested' => true,
+        ], ['id' => $event['id']]);
+
+        return $this->json($res, [
+            'message' => 'Door open requested',
+            'event_id' => $event['id'],
+        ]);
+    }
+
+    // === GET /doorbell/status?pico_serial=XYZ ===
+    public function status(Request $req, Response $res): Response
+    {
+        $params = $req->getQueryParams();
+        $picoSerial = $params['pico_serial'] ?? null;
+
+        if (!$picoSerial) {
+            return $this->jsonError($res, 'Missing pico_serial', 400);
+        }
+
+        // Finn siste event for pico
+        $event = $this->db->get('doorbell_events', '*', [
+            'pico_serial' => $picoSerial,
+            'opened_at' => null,
+            'ORDER' => ['created_at' => 'DESC'],
+            'LIMIT' => 1,
+        ]);
+
+        $open = $event && $event['open_requested'];
+        # Update event to reset open_requested after checking
+        if ($open) {
+            $this->db->update('doorbell_events', [
+                'opened_at' => date('Y-m-d H:i:s'),
+            ], ['id' => $event['id']]);
+        }
+        return $this->json($res, ['open' => $open]);
+    }
+
+    // === Helper ===
+    private function json(Response $res, array $data, int $status = 200): Response
+    {
+        $res->getBody()->write(json_encode($data, JSON_UNESCAPED_UNICODE));
+        return $res->withStatus($status)
                    ->withHeader('Content-Type', 'application/json');
+    }
+
+    private function jsonError(Response $res, string $msg, int $status): Response
+    {
+        return $this->json($res, ['error' => $msg], $status);
     }
 }
