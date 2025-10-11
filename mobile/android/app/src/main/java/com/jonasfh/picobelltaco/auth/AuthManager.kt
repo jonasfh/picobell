@@ -18,6 +18,7 @@ import org.json.JSONObject
 class AuthManager(private val context: Context) {
 
     private val client = OkHttpClient()
+    private val tokenManager = TokenManager(context)
 
     private val gso = GoogleSignInOptions.Builder(
         GoogleSignInOptions.DEFAULT_SIGN_IN
@@ -32,18 +33,15 @@ class AuthManager(private val context: Context) {
         withContext(Dispatchers.IO) {
             try {
                 val idToken = account.idToken
-                Log.d("AUTH", "Got ID token: ${idToken?.take(20)}...")
-
                 if (idToken == null) {
                     Log.e("AUTH", "No ID token in Google account")
                     return@withContext null
                 }
 
                 val url = "${BuildConfig.SERVER_URL}/auth/google"
-                Log.d("AUTH", "Posting token to $url")
-
                 val body = JSONObject().put("id_token", idToken).toString()
                     .toRequestBody("application/json".toMediaType())
+
                 val req = Request.Builder()
                     .url(url)
                     .post(body)
@@ -51,16 +49,14 @@ class AuthManager(private val context: Context) {
 
                 client.newCall(req).execute().use { res ->
                     val bodyStr = res.body?.string()
-                    Log.d("AUTH", "Response ${res.code}: $bodyStr")
-
                     if (!res.isSuccessful) {
                         Log.e("AUTH", "Login failed: ${res.code}")
                         return@withContext null
                     }
 
-                    val json = JSONObject(bodyStr ?: "")
-                    val jwt = json.optString("token")
-                    Log.d("AUTH", "Received JWT: ${jwt.take(20)}...")
+                    val jwt = JSONObject(bodyStr ?: "").optString("token")
+                    tokenManager.saveToken(jwt)
+                    Log.d("AUTH", "JWT lagret: ${jwt.take(20)}...")
                     return@withContext jwt
                 }
             } catch (e: Exception) {
@@ -69,16 +65,22 @@ class AuthManager(private val context: Context) {
             }
         }
 
-    suspend fun registerDevice(jwt: String, fcmToken: String): Boolean =
+    suspend fun registerDevice(fcmToken: String): Boolean =
         withContext(Dispatchers.IO) {
+            val jwt = tokenManager.getToken()
+            if (jwt == null) {
+                Log.e("DEVICE", "Ingen JWT lagret – ikke innlogget?")
+                return@withContext false
+            }
+
             try {
                 val url = "${BuildConfig.SERVER_URL}/profile/devices/register"
-                Log.d("DEVICE", "Registering device at $url")
-                Log.d("DEVICE", "Device name: ${android.os.Build.MANUFACTURER} - ${android.os.Build.MODEL}")
                 val body = JSONObject()
                     .put("device_token", fcmToken)
-                    .put("device_name", "${android.os.Build.MANUFACTURER} - ${android.os.Build.MODEL}")
-                    .toString()
+                    .put(
+                        "device_name",
+                        "${android.os.Build.MANUFACTURER} - ${android.os.Build.MODEL}"
+                    ).toString()
                     .toRequestBody("application/json".toMediaType())
 
                 val req = Request.Builder()
@@ -89,8 +91,7 @@ class AuthManager(private val context: Context) {
 
                 client.newCall(req).execute().use { res ->
                     val success = res.isSuccessful
-                    val responseBody = res.body?.string()
-                    Log.d("DEVICE", "Response ${res.code}: $responseBody")
+                    Log.d("DEVICE", "Response ${res.code}: ${res.body?.string()}")
                     return@withContext success
                 }
             } catch (e: Exception) {

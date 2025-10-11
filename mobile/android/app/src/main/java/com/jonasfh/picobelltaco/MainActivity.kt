@@ -24,7 +24,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // --- Sjekk notifikasjonstillatelse på Android 13+ ---
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ActivityCompat.checkSelfPermission(
                     this,
@@ -39,7 +38,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // --- Initialiser AuthManager og start Google Sign-In ---
         authManager = AuthManager(this)
         startSignIn()
     }
@@ -57,10 +55,12 @@ class MainActivity : AppCompatActivity() {
                 val account = task.getResult(ApiException::class.java)
                 lifecycleScope.launch {
                     val jwt = authManager.handleSignInResult(account)
-                    val fcmToken = getFcmToken()
-                    if (jwt != null && fcmToken != null) {
-                        Log.d("DEVICE", "fcmToken: $fcmToken")
-                        authManager.registerDevice(jwt, fcmToken)
+                    if (jwt != null) {
+                        val fcmToken = getFcmToken()
+                        if (fcmToken != null) {
+                            Log.d("DEVICE", "fcmToken: $fcmToken")
+                            authManager.registerDevice(fcmToken)
+                        }
                     }
                 }
             } catch (e: ApiException) {
@@ -68,7 +68,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-    // Hent FCM-token på coroutine-friendly måte
     private suspend fun getFcmToken(): String? {
         return try {
             FirebaseMessaging.getInstance().token.await()
