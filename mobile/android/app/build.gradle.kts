@@ -41,17 +41,19 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.9.0")
     implementation("androidx.emoji:emoji-bundled:1.1.0")
-    implementation("com.google.firebase:firebase-messaging:23.3.1")
+    implementation("com.google.firebase:firebase-messaging:25.0.1")
     // Google / HTTP / Coroutines
-    implementation("com.google.android.gms:play-services-auth:21.2.0")
+    implementation("com.google.android.gms:play-services-auth:21.4.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     // --- TESTING ---
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     // Retrofit
-    implementation("com.squareup.retrofit2:retrofit:2.11.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:5.0.0-alpha.14")
+    // implementation("com.squareup.retrofit2:retrofit:3.0.0")
+    // implementation("com.squareup.retrofit2:converter-gson:3.0.0")
+    // implementation("com.squareup.okhttp3:logging-interceptor:5.2.1")
+    // Security
+     implementation("androidx.preference:preference-ktx:1.2.1")
 }
