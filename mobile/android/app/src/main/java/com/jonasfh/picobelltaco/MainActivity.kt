@@ -4,6 +4,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.widget.FrameLayout
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -12,6 +13,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.messaging.FirebaseMessaging
 import com.jonasfh.picobelltaco.auth.AuthManager
+import com.jonasfh.picobelltaco.ui.ProfileFragment
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -22,8 +24,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
 
+        // Sett opp en enkel container i kode
+        val container = FrameLayout(this).apply { id = R.id.main_container }
+        setContentView(container)
+
+        // Resten er som før
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ActivityCompat.checkSelfPermission(
                     this,
@@ -61,6 +67,8 @@ class MainActivity : AppCompatActivity() {
                             Log.d("DEVICE", "fcmToken: $fcmToken")
                             authManager.registerDevice(fcmToken)
                         }
+                        // Når innlogging er ferdig, vis profilfragmentet
+                        showProfile()
                     }
                 }
             } catch (e: ApiException) {
@@ -75,5 +83,11 @@ class MainActivity : AppCompatActivity() {
             Log.e("FCM", "Failed to get FCM token", e)
             null
         }
+    }
+
+    private fun showProfile() {
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.main_container, ProfileFragment())
+            .commitNow()
     }
 }
