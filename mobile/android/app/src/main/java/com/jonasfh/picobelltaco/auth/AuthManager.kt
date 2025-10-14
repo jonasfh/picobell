@@ -64,39 +64,4 @@ class AuthManager(private val context: Context) {
                 return@withContext null
             }
         }
-
-    suspend fun registerDevice(fcmToken: String): Boolean =
-        withContext(Dispatchers.IO) {
-            val jwt = tokenManager.getToken()
-            if (jwt == null) {
-                Log.e("DEVICE", "Ingen JWT lagret – ikke innlogget?")
-                return@withContext false
-            }
-
-            try {
-                val url = "${BuildConfig.SERVER_URL}/profile/devices/register"
-                val body = JSONObject()
-                    .put("device_token", fcmToken)
-                    .put(
-                        "device_name",
-                        "${android.os.Build.MANUFACTURER} - ${android.os.Build.MODEL}"
-                    ).toString()
-                    .toRequestBody("application/json".toMediaType())
-
-                val req = Request.Builder()
-                    .url(url)
-                    .addHeader("Authorization", "Bearer $jwt")
-                    .post(body)
-                    .build()
-
-                client.newCall(req).execute().use { res ->
-                    val success = res.isSuccessful
-                    Log.d("DEVICE", "Response ${res.code}: ${res.body?.string()}")
-                    return@withContext success
-                }
-            } catch (e: Exception) {
-                Log.e("DEVICE", "Device registration failed", e)
-                return@withContext false
-            }
-        }
 }
