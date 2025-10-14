@@ -1,41 +1,68 @@
 package com.jonasfh.picobelltaco.data
 
 import android.content.Context
-import androidx.preference.PreferenceManager
+import android.util.Log
+import com.google.gson.Gson
+import com.jonasfh.picobelltaco.auth.TokenManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.Callback
-import com.google.gson.Gson
-import okhttp3.Call
-import okhttp3.Response
-import java.io.IOException
-
 
 class ProfileRepository(private val context: Context) {
-    private val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+    private val tokenManager = TokenManager(context)
     private val client = OkHttpClient()
+    private val gson = Gson()
 
-    fun getProfile(callback: (ProfileResponse?) -> Unit) {
-        val token = prefs.getString("access_token", null) ?: return callback(null)
+    suspend fun getProfile(): ProfileResponse? = withContext(Dispatchers.IO) {
+        Log.d("PROFILE", "Getting profile")
+        val token = tokenManager.getToken() ?: return@withContext null
+        Log.d("PROFILE", "Fetching profile with token: ${token.take(10)}...")
+
         val request = Request.Builder()
             .url("https://picobell.no/profile")
             .addHeader("Authorization", "Bearer $token")
             .build()
 
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) = callback(null)
-            override fun onResponse(call: Call, response: Response) {
-                response.body?.string()?.let {
-                    val profile = Gson().fromJson(it, ProfileResponse::class.java)
-                    callback(profile)
-                } ?: callback(null)
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.e("PROFILE", "Request failed with code ${response.code}")
+                    return@withContext null
+                }
+
+                val body = response.body?.string() ?: return@withContext null
+                Log.d("PROFILE", "Response body: ${body.take(200)}")
+
+                gson.fromJson(body, ProfileResponse::class.java)
             }
-        })
+        } catch (e: Exception) {
+            Log.e("PROFILE", "Error fetching profile", e)
+            null
+        }
     }
 }
 
 data class ProfileResponse(
-    val user: String,
-    val apartments: List<String>,
-    val devices: List<String>
+    val id: Int,
+    val email: String,
+    val role: String,
+    val created_at: String,
+    val modified_at: String,
+    val apartments: List<Apartment>,
+    val devices: List<Device>
+)
+
+data class Apartment(
+    val id: Int,
+    val address: String,
+    val created_at: String,
+    val modified_at: String
+)
+
+data class Device(
+    val id: Int,
+    val name: String,
+    val created_at: String,
+    val modified_at: String
 )
