@@ -4,24 +4,21 @@ import android.content.Context
 import android.util.Log
 import com.google.gson.Gson
 import com.jonasfh.picobelltaco.auth.TokenManager
+import com.jonasfh.picobelltaco.auth.HttpClientProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
 import okhttp3.Request
 
 class ProfileRepository(private val context: Context) {
     private val tokenManager = TokenManager(context)
-    private val client = OkHttpClient()
+    private val client = HttpClientProvider.getInstance(context)
     private val gson = Gson()
 
     suspend fun getProfile(): ProfileResponse? = withContext(Dispatchers.IO) {
         Log.d("PROFILE", "Getting profile")
-        val token = tokenManager.getToken() ?: return@withContext null
-        Log.d("PROFILE", "Fetching profile with token: ${token.take(10)}...")
 
         val request = Request.Builder()
             .url("https://picobell.no/profile")
-            .addHeader("Authorization", "Bearer $token")
             .build()
 
         try {
