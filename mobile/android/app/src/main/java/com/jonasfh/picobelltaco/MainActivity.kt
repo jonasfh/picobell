@@ -14,12 +14,14 @@ import com.google.android.gms.common.api.ApiException
 import com.google.firebase.messaging.FirebaseMessaging
 import com.jonasfh.picobelltaco.auth.AuthManager
 import com.jonasfh.picobelltaco.ui.ProfileFragment
+import com.jonasfh.picobelltaco.data.DeviceRepository
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var authManager: AuthManager
+    private lateinit var deviceRepository: DeviceRepository
     val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,6 +30,8 @@ class MainActivity : AppCompatActivity() {
         // Sett opp en enkel container i kode
         val container = FrameLayout(this).apply { id = R.id.main_container }
         setContentView(container)
+
+        deviceRepository = DeviceRepository(this)
 
         // Resten er som før
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -65,7 +69,7 @@ class MainActivity : AppCompatActivity() {
                         val fcmToken = getFcmToken()
                         if (fcmToken != null) {
                             Log.d("DEVICE", "fcmToken: ${fcmToken.take(10)}")
-                            authManager.registerDevice(fcmToken)
+                            deviceRepository.registerDevice(fcmToken)
                         }
                         // Når innlogging er ferdig, vis profilfragmentet
                         showProfile()
