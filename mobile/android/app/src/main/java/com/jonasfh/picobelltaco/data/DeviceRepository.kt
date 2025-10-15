@@ -27,7 +27,7 @@ class DeviceRepository(private val context: Context) {
             Log.d("DEVICE", "Register device: ")
 
             val request = Request.Builder()
-                .url("https://picobell.no/devices/register")
+                .url("https://picobell.no/profile/devices/register")
                 .post(body)
                 .build()
 
@@ -45,7 +45,7 @@ class DeviceRepository(private val context: Context) {
     suspend fun deleteDevice(deviceId: Int): Boolean =
         withContext(Dispatchers.IO) {
             val request = Request.Builder()
-                .url("https://picobell.no/devices/$deviceId")
+                .url("https://picobell.no/profile/devices/$deviceId")
                 .delete()
                 .build()
 

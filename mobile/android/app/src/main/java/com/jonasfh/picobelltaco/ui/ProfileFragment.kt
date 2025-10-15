@@ -14,17 +14,20 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import com.jonasfh.picobelltaco.data.DeviceRepository
 import com.jonasfh.picobelltaco.data.ProfileRepository
 import kotlinx.coroutines.launch
 
 class ProfileFragment : Fragment() {
 
     private lateinit var repository: ProfileRepository
+    private lateinit var deviceRepository: DeviceRepository
     private val handler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = ProfileRepository(requireContext())
+        deviceRepository = DeviceRepository(requireContext())
     }
 
     override fun onCreateView(
@@ -70,7 +73,7 @@ class ProfileFragment : Fragment() {
 
             // Bruker-info
             val txtUser = TextView(requireContext()).apply {
-                text = "Bruker: ${profile.email}"
+                text = "Bruker: \n${profile.email}"
                 textSize = 20f
                 setTypeface(null, Typeface.BOLD)
                 setPadding(0, 0, 0, 32)
@@ -83,7 +86,7 @@ class ProfileFragment : Fragment() {
                 layout.addView(textLine("(ingen registrert)"))
             } else {
                 profile.apartments.forEach { apt ->
-                    layout.addView(textLine(apt.address))
+                    layout.addView(apartmentRow(apt.address))
                 }
             }
 
@@ -93,7 +96,9 @@ class ProfileFragment : Fragment() {
                 layout.addView(textLine("(ingen registrert)"))
             } else {
                 profile.devices.forEach { dev ->
-                    layout.addView(deviceRow(dev.name))
+                    layout.addView(deviceRow(
+                        dev.name, dev.modified_at, dev.id
+                    ))
                 }
             }
         }
@@ -116,7 +121,34 @@ class ProfileFragment : Fragment() {
             setPadding(16, 8, 0, 8)
         }
 
-    private fun deviceRow(name: String): LinearLayout {
+    private fun apartmentRow(address: String): LinearLayout {
+        val row = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 20, 0, 20)
+        }
+        val btnOpen = Button(requireContext()).apply {
+            text = address
+            isEnabled = false
+            setOnClickListener {
+                // TODO: Kall API for å åpne leilighet
+            }
+            setPadding(60, 60, 60, 60)
+        }
+
+        val btnDelete = Button(requireContext()).apply {
+            text = "🗑️"
+            setOnClickListener {
+                // TODO: Kall API for å slette leilighet
+            }
+        }
+
+        row.addView(btnOpen)
+        row.addView(btnDelete)
+        return row
+    }
+
+    private fun deviceRow(name: String, modifiedAt: String, id: Int): LinearLayout {
         val row = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -130,28 +162,32 @@ class ProfileFragment : Fragment() {
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
             )
         }
+        val txtModifiedAt = TextView(requireContext()).apply {
+            text = "Last seen: ${modifiedAt}"
+            textSize = 12f
+            layoutParams = LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+            )
+        }
 
         val btnDelete = Button(requireContext()).apply {
             text = "🗑️"
             setOnClickListener {
-                // TODO: Kall API for å slette device
+                lifecycleScope.launch {
+                    val success = deviceRepository.deleteDevice(id)
+                    if (success) {
+                        handler.post {
+                            row.visibility = View.GONE
+                        }
+                    }
+                }
             }
+            isEnabled = true
         }
-
-        val btnOpen = Button(requireContext()).apply {
-            text = "Åpne"
-            isEnabled = false
-        }
-
-        // Simuler “noen ringer på”
-        row.postDelayed({
-            btnOpen.isEnabled = true
-            handler.postDelayed({ btnOpen.isEnabled = false }, 5000)
-        }, 2000)
 
         row.addView(txtName)
+        row.addView(txtModifiedAt)
         row.addView(btnDelete)
-        row.addView(btnOpen)
         return row
     }
 }
