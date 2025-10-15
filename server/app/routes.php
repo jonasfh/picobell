@@ -33,6 +33,7 @@ return function (App $app, Medoo $db) {
         $group->group('/devices', function ($sub) use ($devices) {
             $sub->get('', [$devices, 'list']);
             $sub->post('/register', [$devices, 'register']);
+            $sub->delete('/{id}', [$devices, 'delete']);
         });
 
         // Apartments under /profile/apartments

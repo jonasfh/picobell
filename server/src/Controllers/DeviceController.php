@@ -67,4 +67,32 @@ class DeviceController {
         ]));
         return $res->withHeader('Content-Type', 'application/json');
     }
+
+    function delete(Request $req, Response $res, array $args): Response {
+        $userAttr = $req->getAttribute('user');
+        $user = $this->db->get("users", "*", ["email" => $userAttr['email']]);
+        $deviceId = $args['id'];
+
+        // Sjekk om enheten eksisterer og tilhører brukeren
+        $device = $this->db->get("devices", "*", [
+            "id" => $deviceId,
+            "user_id" => $user['id']
+        ]);
+
+        if (!$device) {
+            $res->getBody()->write(json_encode([
+                'error' => 'Device not found or does not belong to user'
+            ]));
+            return $res->withStatus(404)
+                       ->withHeader('Content-Type', 'application/json');
+        }
+
+        // Slett enheten
+        $this->db->delete("devices", ["id" => $deviceId]);
+
+        $res->getBody()->write(json_encode([
+            'message' => 'Device deleted'
+        ]));
+        return $res->withHeader('Content-Type', 'application/json');
+    }
 }
