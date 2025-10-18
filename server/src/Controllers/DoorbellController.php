@@ -10,10 +10,16 @@ use Error;
 class DoorbellController
 {
     private Medoo $db;
+    private FcmService $fcm;
 
     public function __construct(Medoo $db)
     {
         $this->db = $db;
+        $this->fcm = new FcmService(
+                getenv('FIREBASE_PROJECT_ID'),
+                __DIR__ . '/../../' . getenv('SERVICE_ACCOUNT_PATH')
+            );
+
     }
 
     // === POST /doorbell/ring ===
@@ -42,22 +48,18 @@ class DoorbellController
         $userIds = $this->db->select('user_apartment', 'user_id', [
             'apartment_id' => $apartment['id'],
         ]);
-        $devices = $this->db->select('devices', 'token', [
+        $devices = $this->db->select('devices', ['token'], [
             'user_id' => $userIds,
         ]);
 
         if (!empty($devices)) {
-            $fcm = new FcmService(
-                getenv('FIREBASE_PROJECT_ID'),
-                __DIR__ . '/../../' . getenv('SERVICE_ACCOUNT_PATH')
-            );
 
             foreach ($devices as $device) {
-                $fcm->sendNotification(
+                $result = $this->fcm->sendNotification(
                     $device['token'],
                     'Ring på døra!',
-                    'Noen står utenfor 🚪🔔',
-                    ['apartment_id' => $apartment['id']]
+                    '🚪🔔 Noen står utenfor ' . $apartment['name'],
+                    ['apartment_id' => (string) $apartment['id']]
                 );
             }
         }
