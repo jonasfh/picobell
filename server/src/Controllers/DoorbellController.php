@@ -52,9 +52,9 @@ class DoorbellController
                 __DIR__ . '/../../' . getenv('SERVICE_ACCOUNT_PATH')
             );
 
-            foreach ($devices as $token) {
+            foreach ($devices as $device) {
                 $fcm->sendNotification(
-                    $token,
+                    $device['token'],
                     'Ring på døra!',
                     'Noen står utenfor 🚪🔔',
                     ['apartment_id' => $apartment['id']]
