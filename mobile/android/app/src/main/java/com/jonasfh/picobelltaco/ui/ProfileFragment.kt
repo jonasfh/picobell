@@ -24,6 +24,14 @@ class ProfileFragment : Fragment() {
     private lateinit var deviceRepository: DeviceRepository
     private val handler = Handler(Looper.getMainLooper())
 
+    // Her lagres alle åpne-knapper per leilighet-id
+    private val apartmentButtons = mutableMapOf<Int, Button>()
+
+    // Her lagres eventuelle timer-handlers per leilighet-id,
+    // slik at de kan nullstilles ved ny aktivering
+    private val apartmentTimers = mutableMapOf<Int, Runnable>()
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = ProfileRepository(requireContext())
@@ -86,10 +94,20 @@ class ProfileFragment : Fragment() {
                 layout.addView(textLine("(ingen registrert)"))
             } else {
                 profile.apartments.forEach { apt ->
-                    layout.addView(apartmentRow(apt.address))
+                    layout.addView(apartmentRow(apt.address, apt.id))
                 }
             }
 
+
+            // Legg til testknapp for å enable leilighet med id = 1
+            val btnEnableApt1 = Button(requireContext()).apply {
+                text = "Enable leilighet #1"
+                setOnClickListener {
+                    enableOpenApartment(1)
+                }
+            }
+
+            layout.addView(btnEnableApt1)
             // Devices
             layout.addView(sectionTitle("Devices:"))
             if (profile.devices.isEmpty()) {
@@ -121,12 +139,14 @@ class ProfileFragment : Fragment() {
             setPadding(16, 8, 0, 8)
         }
 
-    private fun apartmentRow(address: String): LinearLayout {
+    private fun apartmentRow(address: String, id: Int): LinearLayout {
         val row = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 20, 0, 20)
         }
+
+
         val btnOpen = Button(requireContext()).apply {
             text = address
             isEnabled = false
@@ -135,6 +155,7 @@ class ProfileFragment : Fragment() {
             }
             setPadding(60, 60, 60, 60)
         }
+        apartmentButtons.put(id, btnOpen)
 
         val btnDelete = Button(requireContext()).apply {
             text = "🗑️"
@@ -189,5 +210,38 @@ class ProfileFragment : Fragment() {
         row.addView(txtModifiedAt)
         row.addView(btnDelete)
         return row
+    }
+
+    private fun enableOpenApartment(id: Int) {
+        val btn = apartmentButtons[id]
+        if (btn == null) {
+            Log.w("PROFILE", "Fant ingen leilighet med id=$id")
+            return
+        }
+
+        val originalText = btn.text.toString()
+
+        // Hvis det finnes en aktiv timer, fjern den før vi starter ny
+        apartmentTimers[id]?.let { existing ->
+            handler.removeCallbacks(existing)
+            Log.d("PROFILE", "Nullstiller eksisterende timer for leilighet $id")
+        }
+
+        // Enable knappen
+        btn.isEnabled = true
+        btn.text = "$originalText (aktivert)"
+        Log.d("PROFILE", "Aktiverte knapp for leilighet $id")
+
+        // Lag et nytt Runnable-objekt for disable
+        val disableRunnable = Runnable {
+            btn.isEnabled = false
+            btn.text = originalText
+            Log.d("PROFILE", "Deaktiverte knapp for leilighet $id (timeout)")
+            apartmentTimers.remove(id)
+        }
+
+        // Lagre og start timer på nytt (120 sek)
+        apartmentTimers[id] = disableRunnable
+        handler.postDelayed(disableRunnable, 120_000)
     }
 }
