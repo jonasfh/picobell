@@ -24,7 +24,7 @@ class DeviceRepository(private val context: Context) {
                     "${android.os.Build.MANUFACTURER} - ${android.os.Build.MODEL}"
                 ).toString()
                 .toRequestBody("application/json".toMediaType())
-            Log.d("DEVICE", "Register device: ")
+            Log.d("DEVICE", "Register device body: $body")
 
             val request = Request.Builder()
                 .url("https://picobell.no/profile/devices/register")

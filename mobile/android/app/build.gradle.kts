@@ -41,7 +41,14 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.9.0")
     implementation("androidx.emoji:emoji-bundled:1.1.0")
-    implementation("com.google.firebase:firebase-messaging:25.0.1")
+
+    // Firebase BOM determines the messaging (and possibly other Firebase libraries) version
+    implementation(platform("com.google.firebase:firebase-bom:34.6.0"))
+    implementation("com.google.firebase:firebase-messaging")
+
+    // Analytics not working
+    // implementation("com.google.firebase:firebase-analytics")
+
     // Google / HTTP / Coroutines
     implementation("com.google.android.gms:play-services-auth:21.4.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
