@@ -68,7 +68,7 @@ class MainActivity : AppCompatActivity() {
                     if (jwt != null) {
                         val fcmToken = getFcmToken()
                         if (fcmToken != null) {
-                            Log.d("DEVICE", "fcmToken: ${fcmToken.take(10)}")
+                            Log.d("DEVICE", "fcmToken: ${fcmToken}")
                             deviceRepository.registerDevice(fcmToken)
                         }
                         // Når innlogging er ferdig, vis profilfragmentet
