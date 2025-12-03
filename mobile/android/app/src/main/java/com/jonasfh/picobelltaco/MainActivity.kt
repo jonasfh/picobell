@@ -27,30 +27,39 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Sett opp en enkel container i kode
+        // Enkel container i kode
         val container = FrameLayout(this).apply { id = R.id.main_container }
         setContentView(container)
 
         deviceRepository = DeviceRepository(this)
 
-        // Resten er som før
+        // Request notification permission for Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ActivityCompat.checkSelfPermission(
                     this,
                     android.Manifest.permission.POST_NOTIFICATIONS
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
-                ActivityCompat.requestPermissions(
-                    this,
-                    arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
-                    1001
-                )
+                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                setupFcm()
             }
+        } else {
+            setupFcm()
         }
 
         authManager = AuthManager(this)
         startSignIn()
     }
+
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                setupFcm()
+            } else {
+                Log.w("FCM", "Notification permission denied")
+            }
+        }
 
     private fun startSignIn() {
         val intent = authManager.signInClient.signInIntent
@@ -68,10 +77,10 @@ class MainActivity : AppCompatActivity() {
                     if (jwt != null) {
                         val fcmToken = getFcmToken()
                         if (fcmToken != null) {
-                            Log.d("DEVICE", "fcmToken: ${fcmToken}")
+                            Log.d("DEVICE", "fcmToken: $fcmToken")
                             deviceRepository.registerDevice(fcmToken)
                         }
-                        // Når innlogging er ferdig, vis profilfragmentet
+                        // Vis profilfragment
                         showProfile()
                     }
                 }
@@ -86,6 +95,18 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e("FCM", "Failed to get FCM token", e)
             null
+        }
+    }
+
+    private fun setupFcm() {
+        // Log token for debugging
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val token = task.result
+                Log.d("FCM", "FCM Token ready: $token")
+            } else {
+                Log.e("FCM", "Failed to fetch FCM token", task.exception)
+            }
         }
     }
 
