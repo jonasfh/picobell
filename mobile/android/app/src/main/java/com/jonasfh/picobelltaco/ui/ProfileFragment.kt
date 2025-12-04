@@ -1,5 +1,9 @@
 package com.jonasfh.picobelltaco.ui
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
@@ -12,6 +16,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.jonasfh.picobelltaco.data.DeviceRepository
@@ -31,6 +36,30 @@ class ProfileFragment : Fragment() {
     // slik at de kan nullstilles ved ny aktivering
     private val apartmentTimers = mutableMapOf<Int, Runnable>()
 
+    private val ringEventReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val aptId = intent?.getIntExtra("apartment_id", -1) ?: -1
+            Log.d("PROFILE", "Ring event received")
+            if (aptId != -1) {
+                Log.d("PROFILE", "Ring event for apartment $aptId")
+                enableOpenApartment(aptId)
+            }
+        }
+    }
+    override fun onStart() {
+        super.onStart()
+        Log.d("PROFILE", "Register receiver for ring events")
+        ContextCompat.registerReceiver(
+            requireContext(),
+            ringEventReceiver,
+            IntentFilter("PICOBELL_RING_EVENT"),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+    }
+    override fun onStop() {
+        super.onStop()
+        requireContext().unregisterReceiver(ringEventReceiver)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -98,16 +127,6 @@ class ProfileFragment : Fragment() {
                 }
             }
 
-
-            // Legg til testknapp for å enable leilighet med id = 1
-            val btnEnableApt1 = Button(requireContext()).apply {
-                text = "Enable leilighet #1"
-                setOnClickListener {
-                    enableOpenApartment(1)
-                }
-            }
-
-            layout.addView(btnEnableApt1)
             // Devices
             layout.addView(sectionTitle("Devices:"))
             if (profile.devices.isEmpty()) {
@@ -240,8 +259,8 @@ class ProfileFragment : Fragment() {
             apartmentTimers.remove(id)
         }
 
-        // Lagre og start timer på nytt (120 sek)
+        // Lagre og start timer på nytt (180 sek)
         apartmentTimers[id] = disableRunnable
-        handler.postDelayed(disableRunnable, 120_000)
+        handler.postDelayed(disableRunnable, 180_000)
     }
 }
