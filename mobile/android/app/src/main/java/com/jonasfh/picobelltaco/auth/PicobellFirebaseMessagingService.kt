@@ -4,6 +4,7 @@ import android.Manifest
 import android.R
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresPermission
@@ -23,11 +24,15 @@ class PicobellFirebaseMessagingService : FirebaseMessagingService() {
             showNotification(it.title, it.body)
         }
 
-        // Data payload
-        remoteMessage.data.let {
-            if (it.isNotEmpty()) {
-                Log.d("FCM", "Data payload: $it")
+        val aptId = remoteMessage.data["apartment_id"]?.toIntOrNull()
+        if (aptId != null) {
+            val intent = Intent("PICOBELL_RING_EVENT").apply {
+                putExtra("apartment_id", aptId)
+                setPackage(packageName)   // 🔥 viktig for Android 12+
             }
+            sendBroadcast(intent)
+            Log.d("FCM", "Broadcasted ring event for apartment $aptId")
+            Log.d("FCM", "Broadcast intent targets package: $packageName")
         }
     }
 
