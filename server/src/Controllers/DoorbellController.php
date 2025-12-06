@@ -80,14 +80,23 @@ class DoorbellController
         if (!$userId) {
             return $this->jsonError($res, 'Unauthorized', 401);
         }
+        $body = $req->getParsedBody();
 
-        // Finn brukerens apartment
-        $apartmentId = $this->db->get('user_apartment', 'apartment_id', [
-            'user_id' => $userId,
-        ]);
+        $apartmentId = intval($body['apartment_id'] ?? null);
         if (!$apartmentId) {
-            return $this->jsonError($res, 'No apartment linked', 404);
+            return $this->jsonError($res, 'Missing apartment_id', 400);
         }
+
+        // Sjekk om apartment id er knyttet til bruker. tabeller:
+        // users, user_apartment, apartments
+        $linkedApartment = $this->db->get('user_apartment', '*', [
+            'user_id' => $userId,
+            'apartment_id' => $apartmentId,
+        ]);
+        if (!$linkedApartment) {
+            return $this->jsonError($res, 'Apartment not linked to user', 403);
+        }
+
 
         // Finn siste doorbell-event for apartment
         $picoSerial = $this->db->get('apartments', 'pico_serial', [
