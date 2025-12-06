@@ -21,7 +21,13 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.jonasfh.picobelltaco.data.DeviceRepository
 import com.jonasfh.picobelltaco.data.ProfileRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 
 class ProfileFragment : Fragment() {
 
@@ -127,6 +133,19 @@ class ProfileFragment : Fragment() {
                 }
             }
 
+            val prefs = requireContext().getSharedPreferences("events", 0)
+            val now = System.currentTimeMillis()
+            Log.d("PROFILE", "Re-activating apt apartments from stored event")
+            profile.apartments.forEach { apt ->
+                Log.d("PROFILE", "Checking apt=${apt.id}")
+                val ts = prefs.getLong("apt_${apt.id}", 0L)
+                if (ts > 0 && now - ts < 180_000) {
+
+                    enableOpenApartment(apt.id)
+                    Log.d("PROFILE", "Re-activated apt=${apt.id} from stored event")
+                }
+            }
+
             // Devices
             layout.addView(sectionTitle("Devices:"))
             if (profile.devices.isEmpty()) {
@@ -170,8 +189,45 @@ class ProfileFragment : Fragment() {
             text = address
             isEnabled = false
             setOnClickListener {
-                // TODO: Kall API for å åpne leilighet
+                lifecycleScope.launch {
+                    try {
+                        // JSON-body
+                        val json = JSONObject().put("apartment_id", id).toString()
+                        val body = json.toRequestBody("application/json".toMediaType())
+
+                        // Korrekt base-URL (remote)
+                        val request = Request.Builder()
+                            .url("https://picobell.no/doorbell/open")
+                            .post(body)
+                            .build()
+
+                        // Bruk samme HTTP-klient med JWT som resten av appen
+                        val client = deviceRepository
+                            .javaClass
+                            .getDeclaredField("client")
+                            .apply { isAccessible = true }
+                            .get(deviceRepository) as okhttp3.OkHttpClient
+
+                        val ok = withContext(Dispatchers.IO) {
+                            client.newCall(request).execute().use { resp ->
+                                Log.d("OPEN", "Open response: ${resp.code}")
+                                resp.isSuccessful
+                            }
+                        }
+
+                        if (ok) {
+                            Log.d("OPEN", "Dør åpnet for leilighet $id")
+                            // btn.isEnabled = false
+                            // btn.text = "$address (åpnet)"
+                        } else {
+                            Log.e("OPEN", "Klarte ikke åpne dør for $id")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("OPEN", "Feil under åpning av dør $id", e)
+                    }
+                }
             }
+
             setPadding(60, 60, 60, 60)
         }
         apartmentButtons.put(id, btnOpen)

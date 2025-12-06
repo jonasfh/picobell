@@ -10,6 +10,7 @@ import android.util.Log
 import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.edit
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -18,14 +19,20 @@ class PicobellFirebaseMessagingService : FirebaseMessagingService() {
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         Log.d("FCM", "Message received from: ${remoteMessage.from}")
+        Log.d("FCM", "Message data: ${remoteMessage.data}")
+
 
         // Notification payload
-        remoteMessage.notification?.let {
-            showNotification(it.title, it.body)
-        }
+        showNotification("Picobell", "Noen ringer på ${remoteMessage.data["address"]}")
 
+        // Save data payload indexed by apartment id
         val aptId = remoteMessage.data["apartment_id"]?.toIntOrNull()
         if (aptId != null) {
+            val prefs = getSharedPreferences("events", MODE_PRIVATE)
+            prefs.edit {
+                putLong("apt_$aptId", System.currentTimeMillis())
+            }
+
             val intent = Intent("PICOBELL_RING_EVENT").apply {
                 putExtra("apartment_id", aptId)
                 setPackage(packageName)   // 🔥 viktig for Android 12+
@@ -33,6 +40,7 @@ class PicobellFirebaseMessagingService : FirebaseMessagingService() {
             sendBroadcast(intent)
             Log.d("FCM", "Broadcasted ring event for apartment $aptId")
             Log.d("FCM", "Broadcast intent targets package: $packageName")
+            Log.d("FCM", "Saved ring event for apt $aptId")
         }
     }
 
