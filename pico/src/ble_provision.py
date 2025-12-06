@@ -5,6 +5,7 @@ import bluetooth
 import network
 import binascii
 import time
+import ujson
 
 FLAG_READ = const(0x02)
 FLAG_WRITE = const(0x08)
@@ -148,6 +149,13 @@ class BLEProvision:
                 ip = self._wifi.ifconfig()[0]
                 self._notify("connected:" + ip)
                 print("Connected: ", ip)
+
+                # save ssid and pwd to file flash/wifi.json
+                WIFI_FILE = "/flash/wifi.json"
+                with open(WIFI_FILE, "w") as f:
+                    ujson.dump({"ssid": self._ssid, "pwd": self._pwd}, f)
+                    print("Saved Wi-Fi credentials to", WIFI_FILE)
+
 
                 return
             time.sleep(0.4)
