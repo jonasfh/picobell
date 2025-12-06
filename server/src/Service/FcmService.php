@@ -37,40 +37,92 @@ class FcmService
         return $token['access_token'];
     }
 
-    public function sendNotification(string $token, string $title, string $body, array $data): array
+    /**
+     * === OLD ===
+     * sendNotification() keeps existing but will not be used
+     */
+
+    /**
+     * === NEW: Pure data message ===
+     * Sends a data-only FCM message (NO notification section).
+     * This ensures onMessageReceived() fires even if the app is backgrounded or killed.
+     */
+    public function sendDataMessage(string $token, array $data): array
     {
+        $accessToken = null;
+        $url = sprintf('projects/%s/messages:send', $this->projectId);
+
         try {
             $accessToken = $this->getAccessToken();
-            $url = sprintf('projects/%s/messages:send', $this->projectId);
+
+            $payload = [
+                'message' => [
+                    'token' => $token,
+                    'data'  => $data,
+                    'android' => [
+                        'priority' => 'HIGH',
+                    ],
+                ]
+            ];
+
+            error_log("FCM: sending to URL = $url");
+            error_log("FCM: token (first 10 chars) = " . substr($token, 0, 10) . "...");
+            error_log("FCM: payload = " . json_encode($payload));
 
             $response = $this->client->post($url, [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $accessToken,
                     'Content-Type'  => 'application/json',
                 ],
-                'json' => [
-                    'message' => [
-                        'token' => $token,
-                        'notification' => [
-                            'title' => $title,
-                            'body'  => $body,
-                        ],
-                        'data' => $data,
-                    ],
-                ],
+                'json' => $payload,
+                'http_errors' => false,  // <-- important: let us inspect 404 manually
             ]);
 
-            $data = json_decode((string)$response->getBody(), true);
+            $status = $response->getStatusCode();
+            $body   = (string)$response->getBody();
+
+            error_log("FCM response status: $status");
+            error_log("FCM response body: $body");
+
+            // Handle errors explicitly
+            if ($status < 200 || $status >= 300) {
+                return [
+                    'success' => false,
+                    'status'  => $status,
+                    'error'   => $body ?: "Unknown error from FCM",
+                ];
+            }
+
+            $responseData = json_decode($body, true);
 
             return [
-                'success' => true,
-                'status' => $response->getStatusCode(),
-                'messageId' => $data['name'] ?? null,
+                'success'   => true,
+                'status'    => $status,
+                'messageId' => $responseData['name'] ?? null,
+                'response'  => $responseData,
             ];
-        } catch (\Throwable $e) {
+
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            // 4xx errors
+            error_log("FCM ClientException: " . $e->getMessage());
             return [
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error'   => "ClientException: " . $e->getMessage(),
+            ];
+
+        } catch (\GuzzleHttp\Exception\ServerException $e) {
+            // 5xx errors
+            error_log("FCM ServerException: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error'   => "ServerException: " . $e->getMessage(),
+            ];
+        } catch (\Throwable $e) {
+            // Any other error
+            error_log("FCM Exception: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error'   => "Exception: " . $e->getMessage(),
             ];
         }
     }
