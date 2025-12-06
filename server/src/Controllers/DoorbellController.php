@@ -55,11 +55,13 @@ class DoorbellController
         if (!empty($devices)) {
 
             foreach ($devices as $device) {
-                $result = $this->fcm->sendNotification(
+                $result = $this->fcm->sendDataMessage(
                     $device['token'],
-                    'Ring på døra!',
-                    '🚪🔔 Noen står utenfor ' . $apartment['name'],
-                    ['apartment_id' => (string) $apartment['id']]
+                    [
+                        'apartment_id' => (string) $apartment['id'],
+                        'address' => $apartment['address'],
+                        'timestamp' => (string) time(),
+                    ]
                 );
             }
         }
