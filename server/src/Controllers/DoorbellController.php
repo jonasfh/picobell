@@ -25,24 +25,18 @@ class DoorbellController
     // === POST /doorbell/ring ===
     public function ring(Request $req, Response $res): Response
     {
-        $body = $req->getParsedBody();
-        $picoSerial = $body['pico_serial'] ?? null;
-        if (!$picoSerial) {
-            return $this->jsonError($res, 'Missing pico_serial', 400);
+        $apartment = $req->getAttribute('apartment');
+
+        if (!$apartment) {
+            return $this->jsonError($res, 'Unauthorized device', 401);
         }
+
+        $picoSerial = $apartment['pico_serial'];
 
         // Registrer ny doorbell event
         $this->db->insert('doorbell_events', [
             'pico_serial' => $picoSerial,
         ]);
-
-        // Finn apartment knyttet til pico
-        $apartment = $this->db->get('apartments', '*', [
-            'pico_serial' => $picoSerial,
-        ]);
-        if (!$apartment) {
-            return $this->jsonError($res, 'Unknown pico_serial', 404);
-        }
 
         // Finn brukere og deres aktive devices
         $userIds = $this->db->select('user_apartment', 'user_id', [
@@ -53,12 +47,11 @@ class DoorbellController
         ]);
 
         if (!empty($devices)) {
-
             foreach ($devices as $device) {
-                $result = $this->fcm->sendDataMessage(
+                $this->fcm->sendDataMessage(
                     $device['token'],
                     [
-                        'apartment_id' => (string) $apartment['id'],
+                        'apartment_id' => (string)$apartment['id'],
                         'address' => $apartment['address'],
                         'timestamp' => (string) time(),
                     ]
@@ -128,14 +121,14 @@ class DoorbellController
     // === GET /doorbell/status?pico_serial=XYZ ===
     public function status(Request $req, Response $res): Response
     {
-        $params = $req->getQueryParams();
-        $picoSerial = $params['pico_serial'] ?? null;
+        $apartment = $req->getAttribute('apartment');
 
-        if (!$picoSerial) {
-            return $this->jsonError($res, 'Missing pico_serial', 400);
+        if (!$apartment) {
+            return $this->jsonError($res, 'Unauthorized device', 401);
         }
 
-        // Finn siste event for pico
+        $picoSerial = $apartment['pico_serial'];
+
         $event = $this->db->get('doorbell_events', '*', [
             'pico_serial' => $picoSerial,
             'opened_at' => null,
@@ -144,12 +137,13 @@ class DoorbellController
         ]);
 
         $open = $event && $event['open_requested'];
-        # Update event to reset open_requested after checking
+
         if ($open) {
             $this->db->update('doorbell_events', [
                 'opened_at' => date('Y-m-d H:i:s'),
             ], ['id' => $event['id']]);
         }
+
         return $this->json($res, ['open' => $open]);
     }
 

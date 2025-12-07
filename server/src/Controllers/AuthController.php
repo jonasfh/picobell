@@ -185,4 +185,39 @@ class AuthController
         );
     }
 
+    public function apartmentAuthMiddleware($req, $handler): \Psr\Http\Message\ResponseInterface
+    {
+        $auth = $req->getHeaderLine("Authorization");
+
+        if (!str_starts_with($auth, "Apartment ")) {
+            return $this->apartmentUnauthorized();
+        }
+
+        $apiKey = substr($auth, 10);
+
+        $apartment = $this->db->get("apartments", "*", [
+            "api_key" => $apiKey
+        ]);
+
+        if (!$apartment) {
+            return $this->apartmentUnauthorized();
+        }
+
+        $req = $req->withAttribute("apartment", $apartment);
+
+        return $handler->handle($req);
+    }
+
+    private function apartmentUnauthorized(): \Psr\Http\Message\ResponseInterface
+    {
+        $res = new \Slim\Psr7\Response();
+        $res->getBody()->write(json_encode([
+            "error" => "Invalid apartment key"
+        ]));
+
+        return $res
+            ->withStatus(401)
+            ->withHeader("Content-Type", "application/json");
+    }
+
 }
