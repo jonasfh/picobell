@@ -92,25 +92,31 @@ def start_ble(max_time=300):
         time.sleep(0.5)
 
 
-def send_ring_event(device_id):
+def send_ring_event(api_key):
     url = "https://picobell.no/doorbell/ring"
-    payload = {"pico_serial": device_id}
+
+    headers = {
+        "Authorization": "Apartment " + api_key,
+        "Content-Type": "application/json"
+    }
+
+    payload = {}
+
     try:
-        print("POST:", payload)
-        r = urequests.post(url, json=payload)
+        print("POST:", url)
+        r = urequests.post(url, headers=headers, json=payload)
         print("POST status:", r.status_code)
         r.close()
     except Exception as e:
         print("POST failed:", e)
 
-
-def get_device_id():
+def get_device_api_key():
     # Attempt load from wifi.json (add later in provisioning)
     try:
         with open(WIFI_FILE) as f:
             data = ujson.load(f)
-            if "device_id" in data:
-                return data["device_id"]
+            if "device_api_key" in data:
+                return data["device_api_key"]
     except:
         pass
 
@@ -126,7 +132,7 @@ def get_device_id():
 # ------------------------
 print("Booting...")
 
-device_id = get_device_id()
+device_api_key = get_device_api_key()
 
 if not has_wifi():
     print("wifi.json missing → BLE")
@@ -152,8 +158,9 @@ while True:
         machine.reset()
 
     # Short press = doorbell "ring"
-    if short_press(ring, 500):
+    if short_press(ring, 5000):
         print("RING detected!")
-        send_ring_event(device_id)
+        send_ring_event(device_api_key)
+        time.sleep(10) # dont send multiple rings in a row
 
     time.sleep(0.05)
