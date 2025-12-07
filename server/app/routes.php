@@ -53,7 +53,19 @@ return function (App $app, Medoo $db) {
     // === DOORBELL ===
     $app->group('/doorbell', function ($group) use ($doorbell) {
         $group->post('/ring', [$doorbell, 'ring']);
-        $group->post('/open', [$doorbell, 'open']);
         $group->post('/status', [$doorbell, 'status']);
-    })->add([$auth, 'authMiddleware']);
+        $group->post('/open', [$doorbell, 'open']);
+    })->add(function ($req, $handler) use ($auth) {
+        $path = $req->getUri()->getPath();
+
+        // Pico-endepunkt
+        if (str_starts_with($path, '/doorbell/ring') ||
+            str_starts_with($path, '/doorbell/status')) {
+            return $auth->apartmentAuthMiddleware($req, $handler);
+        }
+
+        // App-endepunkt
+        return $auth->authMiddleware($req, $handler);
+    });
+
 };

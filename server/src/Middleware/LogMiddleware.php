@@ -25,9 +25,11 @@ class LogMiddleware implements MiddlewareInterface
     ): Response {
         $ip = $request->getServerParams()['REMOTE_ADDR'] ?? null;
         $body = (string)$request->getBody();
-        $jwt = $request->getHeaderLine("Authorization") 
-            ? substr($request->getHeaderLine("Authorization"), 7)
-            : null;
+        $jwt = null;
+        if (str_starts_with($request->getHeaderLine("Authorization") ?? "", "Bearer ")) {
+            $jwt = substr($request->getHeaderLine("Authorization"), 7);
+        }
+
         $email = null;
         if ($jwt) {
             try {
@@ -41,13 +43,11 @@ class LogMiddleware implements MiddlewareInterface
             }
         }
 
-        // Konverter til array
-        $user = (array) $decoded;
         # unset id_token from $body if present
         $payload = (array)json_decode($body);
 
         # Make sure to not log sensitive info
-        foreach (['id_token', 'password'] as $key) {
+        foreach (['id_token', 'password', 'api_key'] as $key) {
             if (isset($payload[$key])) {
                 $payload[$key] = '...';
             }

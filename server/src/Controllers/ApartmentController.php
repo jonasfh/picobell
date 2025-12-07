@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Controllers;
 
 use Psr\Http\Message\ResponseInterface as Response;
@@ -29,7 +30,7 @@ class ApartmentController {
 
         $this->db->insert("apartments", [
             "address" => $data['address'],
-            "pico_serial" => $data['pico_serial'] ?? null,
+            "pico_serial" => $data['pico_serial'],
             "api_key" => $apiKey,
             "created_at" => date("Y-m-d H:i:s"),
             "modified_at" => date("Y-m-d H:i:s")
