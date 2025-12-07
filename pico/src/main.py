@@ -1,14 +1,17 @@
-# main.py - Picobell boot + BLE + Wi-Fi + long-press reboot
+# main.py - Boot + Wi-Fi + BLE + long-press reboot + ring detection
 import time
 import machine
 import network
 import ujson
+import urequests
 from ble_provision import BLEProvision
 
-BTN_PIN = 15
+BTN_PIN = 15          # long-press → reboot
+RING_PIN = 10         # short press → "ring" event
 WIFI_FILE = "/flash/wifi.json"
 
 btn = machine.Pin(BTN_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
+ring = machine.Pin(RING_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
 
 
 # ------------------------
@@ -57,8 +60,21 @@ def long_press(pin, hold_ms=10000):
     return False
 
 
+def short_press(pin, max_ms=300):
+    # LOW = pressed; detect short momentary press
+    if pin.value() == 0:
+        print("Detecting short press...")
+        t0 = time.ticks_ms()
+        while pin.value() == 0:
+            # debounce hold
+            time.sleep(0.01)
+        dt = time.ticks_diff(time.ticks_ms(), t0)
+        return dt < max_ms
+    return False
+
+
 def start_ble(max_time=300):
-    print("BLE provision start")
+    print("BLE start")
     prov = BLEProvision()
     prov.start()
 
@@ -68,10 +84,41 @@ def start_ble(max_time=300):
             print("Provision OK → reboot")
             time.sleep(0.5)
             machine.reset()
+
         if time.ticks_diff(time.ticks_ms(), t0) > max_time * 1000:
-            print("BLE timeout → exit")
+            print("BLE timeout")
             break
+
         time.sleep(0.5)
+
+
+def send_ring_event(device_id):
+    url = "https://picobell.no/doorbell/ring"
+    payload = {"pico_serial": device_id}
+    try:
+        print("POST:", payload)
+        r = urequests.post(url, json=payload)
+        print("POST status:", r.status_code)
+        r.close()
+    except Exception as e:
+        print("POST failed:", e)
+
+
+def get_device_id():
+    # Attempt load from wifi.json (add later in provisioning)
+    try:
+        with open(WIFI_FILE) as f:
+            data = ujson.load(f)
+            if "device_id" in data:
+                return data["device_id"]
+    except:
+        pass
+
+    # fallback using MAC
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    mac = wlan.config("mac")
+    return mac.hex()
 
 
 # ------------------------
@@ -79,12 +126,11 @@ def start_ble(max_time=300):
 # ------------------------
 print("Booting...")
 
-# 1. Wi-Fi missing → BLE
+device_id = get_device_id()
+
 if not has_wifi():
     print("wifi.json missing → BLE")
     start_ble()
-
-# 2. Wi-Fi present → try connect
 else:
     cred = load_wifi()
     ok = connect_wifi(cred["ssid"], cred["pwd"], 20)
@@ -96,15 +142,18 @@ else:
 # ------------------------
 # Main run-loop
 # ------------------------
-print("Run loop started.")
+print("Run loop...")
 
 while True:
-    # Detect long-press for reboot only
+    # Long press = reboot
     if long_press(btn, 10000):
         print("Long-press → reboot")
         time.sleep(0.5)
         machine.reset()
-        break
 
-    # TODO: port-relay logic / heartbeat / mqtt etc.
-    time.sleep(0.1)
+    # Short press = doorbell "ring"
+    if short_press(ring, 500):
+        print("RING detected!")
+        send_ring_event(device_id)
+
+    time.sleep(0.05)
