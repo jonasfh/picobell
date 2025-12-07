@@ -10,7 +10,8 @@ class DeviceController {
     public function __construct(Medoo $db) { $this->db = $db; }
 
     public function list(Request $req, Response $res): Response {
-        $devices = $this->db->select("devices", "*");
+        $user = $req->getAttribute('user');
+        $devices = $this->db->select("devices", "*", ['user_id'=>$user['id']]);
         $res->getBody()->write(json_encode($devices));
         return $res->withHeader('Content-Type', 'application/json');
     }

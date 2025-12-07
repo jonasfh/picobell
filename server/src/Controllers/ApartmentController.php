@@ -7,16 +7,25 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Medoo\Medoo;
 
 class ApartmentController {
-    private $db;
+    private Medoo $db;
     public function __construct(Medoo $db) { $this->db = $db; }
 
     public function list(Request $req, Response $res): Response {
-        $apartments = $this->db->select("apartments", [
-            "id",
+        # use the user-object in the request to filter only apartments the user
+        # has access to. Users are connected to apartments via the user_apartment table.
+        $user = $req->getAttribute("user");
+        $apartments = $this->db->select(
+            "apartments (a)",
+            [
+                '[>]user_apartment' =>['a.id'=>'apartment_id']
+            ], [
+            "a.id",
             "address",
             "pico_serial",
-            "created_at",
-            "modified_at"
+            "a.created_at",
+            "a.modified_at"
+        ], [
+            "user_id" => $user['id']
         ]);
 
         $res->getBody()->write(json_encode($apartments));
