@@ -54,6 +54,8 @@ def adv_payload(name=None, services=None):
 
 
 class BLEProvision:
+    is_provisioned = False  # Indicates if provisioning is done
+
     def __init__(self):
         self.ble = bluetooth.BLE()
         self.ble.active(True)
@@ -154,7 +156,7 @@ class BLEProvision:
                     ujson.dump({"ssid": self._ssid, "pwd": self._pwd}, f)
                     print("Saved Wi-Fi credentials to", WIFI_FILE)
 
-
+                self.is_provisioned = True  # Mark as provisioned
                 return
             time.sleep(0.4)
 

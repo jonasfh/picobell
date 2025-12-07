@@ -50,8 +50,14 @@ if button_held() or not has_wifi():
     prov.start()
 
     # provisioning loop
-    while True:
-        time.sleep(0.2)
+    # Exit loop after 5 minutes or when provisioning is done
+    start_time = time.ticks_ms()
+    _5min_ms = 5 * 60 * 1000
+    while not prov.is_provisioned:
+        if time.ticks_diff(time.ticks_ms(), start_time) > _5min_ms:
+            print("Provisioning timed out.")
+            break
+        time.sleep(0.5)
 
 else:
     print("Normal Wi-Fi startup")
