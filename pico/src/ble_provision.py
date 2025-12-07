@@ -82,10 +82,6 @@ class BLEProvision:
         services = (devinfo, wifisrv)
         handles = self.ble.gatts_register_services(services)
 
-        #(self.h_dev_id, self.h_fw,
-        # self.h_ssid, self.h_pwd,
-        # self.h_cmd, self.h_stat) = handles
-
         print("Device id: ", self.device_id)
         (devinfo_handles, wifisrv_handles) = handles
         (self.h_dev_id, self.h_fw) = devinfo_handles
@@ -97,8 +93,10 @@ class BLEProvision:
     def start(self):
         name = "Picobell-" + self.device_id[-4:]
         payload = adv_payload(name=name, services=[UUID_WIFI])
+        self.ble.config(gap_name=name)
         self.ble.gap_advertise(100_000, payload)
-
+        scan_resp = adv_payload(name=name)
+        self.ble.gap_advertise(100_000, adv_data=payload, resp_data=scan_resp)
 
     def _irq(self, event, data):
         IRQ_CENTRAL_CONNECT    = 1
