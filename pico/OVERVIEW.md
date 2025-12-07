@@ -13,6 +13,22 @@ enheter samarbeider om å administrere dørklokke- og adgangsfunksjoner.
 
 ---
 
+## Pico W Pinout
+
+![Pico W Pinout](img/pico-2-r4-pinout.svg)
+
+In mermaid:
+
+```mermaid
+graph TD
+    A[Pico W] --> B(GPIO Pins)
+    A --> C(Wi-Fi Antenna)
+    A --> D(USB Port)
+```
+
+
+---
+
 ## BLE Provisioning Flow
 
 ```mermaid
