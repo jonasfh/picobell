@@ -21,6 +21,7 @@ UUID_SSID     = bluetooth.UUID("12345678-1234-1234-1234-1234567890b1")
 UUID_PASS     = bluetooth.UUID("12345678-1234-1234-1234-1234567890b2")
 UUID_CMD      = bluetooth.UUID("12345678-1234-1234-1234-1234567890b3")
 UUID_STATUS   = bluetooth.UUID("12345678-1234-1234-1234-1234567890b4")
+UUID_API_KEY  = bluetooth.UUID("12345678-1234-1234-1234-1234567890b5")
 
 
 def adv_payload(name=None, services=None):
@@ -64,6 +65,7 @@ class BLEProvision:
         self._connections = set()
         self._ssid = ""
         self._pwd = ""
+        self._api_key = ""
 
         self._wifi = network.WLAN(network.STA_IF)
         self._wifi.active(True)
@@ -78,6 +80,7 @@ class BLEProvision:
         wifisrv = (UUID_WIFI,
                    ((UUID_SSID, FLAG_WRITE,),
                     (UUID_PASS, FLAG_WRITE,),
+                    (UUID_API_KEY, FLAG_WRITE,),
                     (UUID_CMD, FLAG_WRITE,),
                     (UUID_STATUS, FLAG_NOTIFY,),))
 
@@ -87,10 +90,14 @@ class BLEProvision:
         print("Device id: ", self.device_id)
         (devinfo_handles, wifisrv_handles) = handles
         (self.h_dev_id, self.h_fw) = devinfo_handles
-        (self.h_ssid, self.h_pwd, self.h_cmd, self.h_stat) = wifisrv_handles
+
+        (self.h_ssid, self.h_pwd,
+         self.h_api, self.h_cmd,
+         self.h_stat) = wifisrv_handles
 
         self.ble.gatts_write(self.h_dev_id, self.device_id)
         self.ble.gatts_write(self.h_fw, b"1.0.0")
+
 
     def start(self):
         name = "Picobell-" + self.device_id[-4:]
@@ -126,6 +133,9 @@ class BLEProvision:
         elif h == self.h_pwd:
             self._pwd = self.ble.gatts_read(h).decode()
             print("Password set to:", self._pwd)
+        elif h == self.h_api:
+            self._api_key = self.ble.gatts_read(h).decode()
+            print("API Key set to:", self._api_key)
         elif h == self.h_cmd:
             cmd = self.ble.gatts_read(h).decode()
             print("CMD received:", cmd)
@@ -144,19 +154,19 @@ class BLEProvision:
         self._wifi.connect(self._ssid, self._pwd)
 
         for _ in range(25):
-            print(".")
+            print(".", end="")
             if self._wifi.isconnected():
                 ip = self._wifi.ifconfig()[0]
                 self._notify("connected:" + ip)
                 print("Connected: ", ip)
 
-                # save ssid and pwd to file flash/wifi.json
-                WIFI_FILE = "/flash/wifi.json"
-                with open(WIFI_FILE, "w") as f:
-                    ujson.dump({"ssid": self._ssid, "pwd": self._pwd}, f)
-                    print("Saved Wi-Fi credentials to", WIFI_FILE)
+                cfg = {"ssid": self._ssid,
+                       "pwd": self._pwd,
+                       "device_api_key": self._api_key}
+                with open("/flash/wifi.json", "w") as f:
+                    ujson.dump(cfg, f)
 
-                self.is_provisioned = True  # Mark as provisioned
+                self.is_provisioned = True
                 return
             time.sleep(0.4)
 
