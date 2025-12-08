@@ -4,9 +4,13 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.util.TypedValue
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -27,9 +31,40 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Enkel container i kode
+        // 1. Create a Root Layout (Vertical Linear Layout)
+        val rootLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+        }
+        // 2. Create the Toolbar
+        val toolbar = Toolbar(this).apply {
+            // Give it a background color (using primary color usually looks best)
+            val typedValue = TypedValue()
+            theme.resolveAttribute(androidx.appcompat.R.attr.colorPrimary, typedValue, true)
+            setBackgroundColor(typedValue.data)
+
+            // Text color for title
+            setTitleTextColor(android.graphics.Color.WHITE)
+        }
+        // 3. Create the Fragment Container (This is what you had before)
         val container = FrameLayout(this).apply { id = R.id.main_container }
-        setContentView(container)
+
+        // 4. Add views to Root
+        // Add Toolbar at the top
+        rootLayout.addView(toolbar, LinearLayout.LayoutParams(MATCH_PARENT,
+            TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 56f, resources.displayMetrics).toInt()
+        ))
+
+        // Add Fragment Container filling the rest of the space (weight = 1)
+        rootLayout.addView(container, LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f))
+
+        // 5. Set Content View
+        setContentView(rootLayout)
+
+        // 6. IMPORTANT: Tell Android to use this toolbar as the Action Bar
+        setSupportActionBar(toolbar)
+
+        // ... The rest of your existing code (deviceRepository, permissions, etc.) ...
 
         deviceRepository = DeviceRepository(this)
 

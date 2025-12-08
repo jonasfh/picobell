@@ -10,6 +10,9 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.Gravity
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -28,8 +31,9 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import com.jonasfh.picobelltaco.R
 
-class ProfileFragment : Fragment() {
+class ProfileFragment : Fragment() , HasMenu{
 
     private lateinit var repository: ProfileRepository
     private lateinit var deviceRepository: DeviceRepository
@@ -69,6 +73,8 @@ class ProfileFragment : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setHasOptionsMenu(true)
+        MainMenu.setup(this)
         repository = ProfileRepository(requireContext())
         deviceRepository = DeviceRepository(requireContext())
     }
@@ -319,4 +325,29 @@ class ProfileFragment : Fragment() {
         apartmentTimers[id] = disableRunnable
         handler.postDelayed(disableRunnable, 180_000)
     }
+
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        MainMenu.inflate(menu, inflater)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        when (item.itemId) {
+            R.id.menu_profile -> {
+                // allerede på denne siden
+                return true
+            }
+            R.id.menu_doorbell -> {
+                parentFragmentManager.beginTransaction()
+                    .replace(
+                        (view?.parent as ViewGroup).id,
+                        DoorbellSetupFragment()
+                    )
+                    .addToBackStack(null)
+                    .commit()
+                return true
+            }
+        }
+        return super.onOptionsItemSelected(item)
+    }
+    override fun onMenuSelected(item: MenuItem): Boolean = false
 }
