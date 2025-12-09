@@ -1,7 +1,10 @@
 package com.jonasfh.picobelltaco.ui
 
 import android.Manifest
+import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothProfile
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.Context
@@ -14,6 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresPermission
 import androidx.fragment.app.Fragment
 import com.jonasfh.picobelltaco.R
+
 
 class DoorbellSetupFragment : Fragment(), HasMenu {
 
@@ -41,18 +45,30 @@ class DoorbellSetupFragment : Fragment(), HasMenu {
             if (ok) startScan()
         }
 
+    private val seenDevices =
+        mutableMapOf<String,
+                android.bluetooth
+                .BluetoothDevice>()
+
     private val callback = object : ScanCallback() {
         @RequiresPermission(
             Manifest.permission.BLUETOOTH_CONNECT
         )
-        override fun onScanResult(type: Int,
-                                  r: ScanResult) {
+        override fun onScanResult(
+            type: Int,
+            r: ScanResult
+        ) {
             val name = r.device.name ?: return
             if (!name.startsWith("Picobell-")) return
 
+            // Oppdater device-objektet uansett
+            seenDevices[name] = r.device
+
+            // UI-rad kun én gang
             if (seen.add(name)) addDevice(name)
         }
     }
+
 
     override fun onCreate(saved: Bundle?) {
         super.onCreate(saved)
@@ -202,12 +218,30 @@ class DoorbellSetupFragment : Fragment(), HasMenu {
 
         val btn = Button(requireContext()).apply {
             text = "Koble til og sett info"
-            setOnClickListener {
+            setOnClickListener @androidx.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT) {
                 val ssid = ssidField?.text.toString()
                 val pass = passField?.text.toString()
-                Log.d("SETUP",
-                    "Provision til $name → " +
-                            "ssid=$ssid pass=$pass")
+
+                val mgr = requireContext()
+                    .getSystemService(
+                        Context.BLUETOOTH_SERVICE
+                    ) as
+                        BluetoothManager
+
+                val dev = mgr.adapter.bondedDevices.firstOrNull { it.name == name }
+                    ?: mgr.adapter
+                        .bluetoothLeScanner
+                        .let { null } // vi scanner allerede
+
+                // Bruk faktisk result.device i stedet:
+                val device = seenDevices[name]!!
+
+                BleProvisioner(
+                    requireContext(),
+                    device,
+                    ssid,
+                    pass
+                ).start()
             }
         }
         row.addView(btn)
@@ -254,4 +288,127 @@ class DoorbellSetupFragment : Fragment(), HasMenu {
 
     override fun onMenuSelected(item: MenuItem)
             : Boolean = false
+
+}
+
+//TODO: Move to other location
+private class BleProvisioner(
+    val ctx: Context,
+    val dev: android.bluetooth.BluetoothDevice,
+    val ssid: String,
+    val pwd: String
+) {
+
+    private val uuidWifi =
+        java.util.UUID.fromString(
+            "12345678-1234-1234-1234-1234567890b0")
+
+    private val uuidSsid =
+        java.util.UUID.fromString(
+            "12345678-1234-1234-1234-1234567890b1")
+
+    private val uuidPwd =
+        java.util.UUID.fromString(
+            "12345678-1234-1234-1234-1234567890b2")
+
+    private val uuidCmd =
+        java.util.UUID.fromString(
+            "12345678-1234-1234-1234-1234567890b3")
+
+    private var gatt: android.bluetooth
+    .BluetoothGatt? = null
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    fun start() {
+        gatt = dev.connectGatt(
+            ctx,
+            false,
+            gattCb
+        )
+    }
+
+    private val gattCb = object :
+        android.bluetooth.BluetoothGattCallback() {
+
+        @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+        override fun onConnectionStateChange(
+            g: BluetoothGatt,
+            st: Int,
+            new: Int
+        ) {
+            if (new ==
+                BluetoothProfile.STATE_CONNECTED
+            ) {
+                g.discoverServices()
+            }
+        }
+
+        @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+        override fun onServicesDiscovered(
+            g: BluetoothGatt,
+            st: Int
+        ) {
+            val svc = g.getService(uuidWifi)
+            if (svc == null) {
+                Log.e(
+                    "BLE",
+                    "Ingen WiFi-service"
+                )
+                return
+            }
+
+            val cSsid = svc.getCharacteristic(uuidSsid)
+            val cPwd = svc.getCharacteristic(uuidPwd)
+            val cCmd = svc.getCharacteristic(uuidCmd)
+
+            // Order: SSID → PASS → CMD
+            cSsid.value = ssid.toByteArray()
+            g.writeCharacteristic(cSsid)
+
+            // lag en liten state-maskin
+            step = 1
+            this.cPwd = cPwd
+            this.cCmd = cCmd
+            this.g = g
+        }
+
+        private var step = 0
+        private lateinit var cPwd:
+                android.bluetooth.BluetoothGattCharacteristic
+        private lateinit var cCmd:
+                android.bluetooth.BluetoothGattCharacteristic
+        private lateinit var g:
+                android.bluetooth.BluetoothGatt
+
+        @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+        override fun onCharacteristicWrite(
+            gatt: BluetoothGatt,
+            ch:
+            BluetoothGattCharacteristic,
+            st: Int
+        ) {
+            if (step == 1) {
+                cPwd.value = pwd.toByteArray()
+                g.writeCharacteristic(cPwd)
+                step = 2
+                return
+            }
+
+            if (step == 2) {
+                cCmd.value =
+                    "connect".toByteArray()
+                g.writeCharacteristic(cCmd)
+                step = 3
+                return
+            }
+
+            if (step == 3) {
+                Log.d(
+                    "BLE",
+                    "Provisioning ferdig"
+                )
+                gatt.disconnect()
+            }
+        }
+    }
 }
