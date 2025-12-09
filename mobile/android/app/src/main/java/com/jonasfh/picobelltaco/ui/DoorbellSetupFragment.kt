@@ -2,6 +2,7 @@ package com.jonasfh.picobelltaco.ui
 
 import android.Manifest
 import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
@@ -222,32 +223,41 @@ class DoorbellSetupFragment : Fragment(), HasMenu {
 
         val btn = Button(requireContext()).apply {
             text = "Koble til og sett info"
-            setOnClickListener @androidx.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT) {
+            setOnClickListener @androidx.annotation.RequiresPermission(
+                android.Manifest.permission.BLUETOOTH_CONNECT
+            ) {
+
                 val ssid = ssidField?.text.toString()
-                val pass = passField?.text.toString()
+                val pwd  = passField?.text.toString()
+                val apiKey = BleProvisioner.generateApiKey()
 
-                val mgr = requireContext()
-                    .getSystemService(
-                        Context.BLUETOOTH_SERVICE
-                    ) as
-                        BluetoothManager
-
-                val dev = mgr.adapter.bondedDevices.firstOrNull { it.name == name }
-                    ?: mgr.adapter
-                        .bluetoothLeScanner
-                        .let { null } // vi scanner allerede
-
-                // Bruk faktisk result.device i stedet:
                 val device = seenDevices[name]!!
 
-                BleProvisioner(
-                    requireContext(),
-                    device,
-                    ssid,
-                    pass
-                ).start()
+                // Først: hent MAC
+                BleMacReader(requireContext(), device) { picoMac ->
+
+                    Log.d("BLE", "MAC fra Pico: $picoMac")
+
+                    createApartmentOnServer(
+                        picoName = name,
+                        apiKey = apiKey,
+                        picoSerial = picoMac
+                    ) {
+
+                        // Når server er ferdig → start provisioning
+                        BleProvisioner(
+                            requireContext(),
+                            device,
+                            ssid,
+                            pwd,
+                            apiKey
+                        ).start()
+                    }
+
+                }.start()
             }
         }
+
         row.addView(btn)
 
         deviceList?.addView(row)
@@ -293,6 +303,46 @@ class DoorbellSetupFragment : Fragment(), HasMenu {
     override fun onMenuSelected(item: MenuItem)
             : Boolean = false
 
+    private fun createApartmentOnServer(
+        picoName: String,
+        apiKey: String,
+        picoSerial: String,
+        onDone: () -> Unit
+    ) {
+        Thread {
+            try {
+                Log.d("HTTP", "Oppretter leilighet")
+                val url = java.net.URL(
+                    "https://picobell.no/profile/apartments"
+                )
+                val conn = url.openConnection() as java.net.HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+
+                val body = """
+                {
+                  "address": "Ny leilighet $picoName",
+                  "pico_serial": "$picoSerial",
+                  "api_key": "$apiKey"
+                }
+            """.trimIndent()
+
+                conn.outputStream.use {
+                    it.write(body.toByteArray())
+                }
+
+                val resp = conn.inputStream.bufferedReader().readText()
+                Log.d("HTTP", "Apartment opprettet: $resp")
+
+            } catch (e: Exception) {
+                Log.e("HTTP", "Feil", e)
+            }
+
+            onDone()
+        }.start()
+    }
+
 }
 
 //TODO: Move to other location
@@ -300,8 +350,15 @@ private class BleProvisioner(
     val ctx: Context,
     val dev: android.bluetooth.BluetoothDevice,
     val ssid: String,
-    val pwd: String
+    val pwd: String,
+    val deviceApiKey: String
 ) {
+
+    private val uuidDevInfo =
+        java.util.UUID.fromString("12345678-1234-1234-1234-1234567890a0")
+
+    private val uuidDevId =
+        java.util.UUID.fromString("12345678-1234-1234-1234-1234567890a1")
 
     private val uuidWifi =
         java.util.UUID.fromString(
@@ -328,10 +385,11 @@ private class BleProvisioner(
     private var gatt: android.bluetooth
     .BluetoothGatt? = null
 
-    val apiKey = generateApiKey()
+    val apiKey = deviceApiKey
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun start() {
+
         gatt = dev.connectGatt(
             ctx,
             false,
@@ -373,6 +431,11 @@ private class BleProvisioner(
             val cPwd  = svc.getCharacteristic(uuidPwd)
             val cApi  = svc.getCharacteristic(uuidApi)
             val cCmd  = svc.getCharacteristic(uuidCmd)
+
+            val devInfo = g.getService(uuidDevInfo)
+            val cDevId = devInfo?.getCharacteristic(uuidDevId)
+            val picoMac = cDevId?.value?.toString(Charsets.UTF_8) ?: ""
+
 
 // Første step: SSID
             cSsid.value = ssid.toByteArray()
@@ -431,11 +494,68 @@ private class BleProvisioner(
 
         }
     }
+    companion object {
+        public fun generateApiKey(): String {
+            val bytes = ByteArray(32)
+            java.security.SecureRandom().nextBytes(bytes)
+            return bytes.joinToString("") { "%02x".format(it) }
+        }
+    }
+}
 
-    private fun generateApiKey(): String {
-        val bytes = ByteArray(32)
-        java.security.SecureRandom().nextBytes(bytes)
-        return bytes.joinToString("") { "%02x".format(it) }
+
+private class BleMacReader(
+    val ctx: Context,
+    val dev: android.bluetooth.BluetoothDevice,
+    val onMacRead: (String) -> Unit
+) {
+
+    private val uuidDevInfo =
+        java.util.UUID.fromString("12345678-1234-1234-1234-1234567890a0")
+    private val uuidDevId =
+        java.util.UUID.fromString("12345678-1234-1234-1234-1234567890a1")
+
+    private var gatt: BluetoothGatt? = null
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    fun start() {
+        gatt = dev.connectGatt(ctx, false, cb)
     }
 
+    private val cb = object : BluetoothGattCallback() {
+
+        @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+        override fun onConnectionStateChange(g: BluetoothGatt, st: Int, newState: Int) {
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
+                g.discoverServices()
+            }
+        }
+
+        @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+        override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
+            val svc = g.getService(uuidDevInfo)
+            val ch  = svc?.getCharacteristic(uuidDevId)
+
+            if (ch == null) {
+                Log.e("BLE", "DevID characteristic mangler")
+                g.disconnect()
+                return
+            }
+
+            g.readCharacteristic(ch)
+        }
+
+        @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+        override fun onCharacteristicRead(
+            g: BluetoothGatt,
+            ch: BluetoothGattCharacteristic,
+            status: Int
+        ) {
+            if (ch.uuid == uuidDevId) {
+                val mac = ch.value.toString(Charsets.UTF_8)
+                onMacRead(mac)
+                g.disconnect()
+            }
+        }
+    }
 }
