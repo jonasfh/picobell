@@ -187,20 +187,24 @@ class DoorbellSetupFragment : Fragment(), HasMenu {
         )
     }
 
-    @RequiresPermission(
-        Manifest.permission.BLUETOOTH_SCAN
-    )
+    @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     private fun startScan() {
-        val mgr = requireContext().
-        getSystemService(
-            Context.BLUETOOTH_SERVICE
-        ) as BluetoothManager
+        val mgr = requireContext()
+            .getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         val sc = mgr.adapter.bluetoothLeScanner
 
         seen.clear()
         deviceList?.removeAllViews()
+
         sc.startScan(callback)
+
+        // Stopp scanning etter 6 sekunder
+        deviceList?.postDelayed({
+            try { sc.stopScan(callback) } catch (_: Exception) {}
+            Log.d("SCAN", "Ble-scan stoppet etter timeout")
+        }, 6000)
     }
+
 
     private fun addDevice(name: String) {
         val row = LinearLayout(requireContext())
@@ -315,8 +319,16 @@ private class BleProvisioner(
         java.util.UUID.fromString(
             "12345678-1234-1234-1234-1234567890b3")
 
+    private val uuidApi =
+        java.util.UUID.fromString(
+            "12345678-1234-1234-1234-1234567890b5"
+        )
+
+
     private var gatt: android.bluetooth
     .BluetoothGatt? = null
+
+    val apiKey = generateApiKey()
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun start() {
@@ -358,18 +370,20 @@ private class BleProvisioner(
             }
 
             val cSsid = svc.getCharacteristic(uuidSsid)
-            val cPwd = svc.getCharacteristic(uuidPwd)
-            val cCmd = svc.getCharacteristic(uuidCmd)
+            val cPwd  = svc.getCharacteristic(uuidPwd)
+            val cApi  = svc.getCharacteristic(uuidApi)
+            val cCmd  = svc.getCharacteristic(uuidCmd)
 
-            // Order: SSID → PASS → CMD
+// Første step: SSID
             cSsid.value = ssid.toByteArray()
             g.writeCharacteristic(cSsid)
 
-            // lag en liten state-maskin
             step = 1
             this.cPwd = cPwd
+            this.cApi = cApi       // NEW
             this.cCmd = cCmd
             this.g = g
+
         }
 
         private var step = 0
@@ -379,6 +393,8 @@ private class BleProvisioner(
                 android.bluetooth.BluetoothGattCharacteristic
         private lateinit var g:
                 android.bluetooth.BluetoothGatt
+        private lateinit var cApi: BluetoothGattCharacteristic
+
 
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onCharacteristicWrite(
@@ -395,20 +411,31 @@ private class BleProvisioner(
             }
 
             if (step == 2) {
-                cCmd.value =
-                    "connect".toByteArray()
-                g.writeCharacteristic(cCmd)
+                cApi.value = apiKey.toByteArray()   // NEW
+                g.writeCharacteristic(cApi)
                 step = 3
                 return
             }
 
             if (step == 3) {
-                Log.d(
-                    "BLE",
-                    "Provisioning ferdig"
-                )
+                cCmd.value = "connect".toByteArray()
+                g.writeCharacteristic(cCmd)
+                step = 4
+                return
+            }
+
+            if (step == 4) {
+                Log.d("BLE", "Provisioning ferdig")
                 gatt.disconnect()
             }
+
         }
     }
+
+    private fun generateApiKey(): String {
+        val bytes = ByteArray(32)
+        java.security.SecureRandom().nextBytes(bytes)
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
 }
