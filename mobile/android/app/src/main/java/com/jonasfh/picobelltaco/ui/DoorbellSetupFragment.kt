@@ -24,12 +24,13 @@ class DoorbellSetupFragment : Fragment(), HasMenu {
 
     private val requestLocation =
         registerForActivityResult(
-            androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+            ActivityResultContracts.RequestPermission()
         ) { granted ->
-            if (granted) {
-                updateCurrentWifi()
-            }
+            updateCurrentWifi()
+            // Nå er location ferdig → be om BLE-permissions
+            requestBlePermissions()
         }
+
 
     private val scanPermission =
         registerForActivityResult(
@@ -91,12 +92,6 @@ class DoorbellSetupFragment : Fragment(), HasMenu {
         layout.addView(scanLayout)
 
         requestLocation.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
-        scanPermission.launch(
-            arrayOf(
-                Manifest.permission.BLUETOOTH_SCAN,
-                Manifest.permission.BLUETOOTH_CONNECT
-            )
-        )
 
         return layout
     }
@@ -176,4 +171,13 @@ class DoorbellSetupFragment : Fragment(), HasMenu {
         }
         scanLayout?.addView(row)
     }
+    private fun requestBlePermissions() {
+        scanPermission.launch(
+            arrayOf(
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.BLUETOOTH_CONNECT
+            )
+        )
+    }
+
 }
