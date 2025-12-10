@@ -24,6 +24,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.jonasfh.picobelltaco.data.DeviceRepository
 import com.jonasfh.picobelltaco.data.ProfileRepository
+import com.jonasfh.picobelltaco.data.ApartmentRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -37,6 +38,8 @@ class ProfileFragment : Fragment() , HasMenu{
 
     private lateinit var repository: ProfileRepository
     private lateinit var deviceRepository: DeviceRepository
+
+    private lateinit var apartmentRepository: ApartmentRepository
     private val handler = Handler(Looper.getMainLooper())
 
     // Her lagres alle åpne-knapper per leilighet-id
@@ -77,6 +80,7 @@ class ProfileFragment : Fragment() , HasMenu{
         MainMenu.setup(this)
         repository = ProfileRepository(requireContext())
         deviceRepository = DeviceRepository(requireContext())
+        apartmentRepository = ApartmentRepository(requireContext())
     }
 
     override fun onCreateView(
@@ -197,29 +201,8 @@ class ProfileFragment : Fragment() , HasMenu{
             setOnClickListener {
                 lifecycleScope.launch {
                     try {
+                        val ok = apartmentRepository.openApartmentDoor(id)
                         // JSON-body
-                        val json = JSONObject().put("apartment_id", id).toString()
-                        val body = json.toRequestBody("application/json".toMediaType())
-
-                        // Korrekt base-URL (remote)
-                        val request = Request.Builder()
-                            .url("https://picobell.no/doorbell/open")
-                            .post(body)
-                            .build()
-
-                        // Bruk samme HTTP-klient med JWT som resten av appen
-                        val client = deviceRepository
-                            .javaClass
-                            .getDeclaredField("client")
-                            .apply { isAccessible = true }
-                            .get(deviceRepository) as okhttp3.OkHttpClient
-
-                        val ok = withContext(Dispatchers.IO) {
-                            client.newCall(request).execute().use { resp ->
-                                Log.d("OPEN", "Open response: ${resp.code}")
-                                resp.isSuccessful
-                            }
-                        }
 
                         if (ok) {
                             Log.d("OPEN", "Dør åpnet for leilighet $id")
