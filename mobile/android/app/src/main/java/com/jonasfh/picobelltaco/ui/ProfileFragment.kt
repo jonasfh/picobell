@@ -19,6 +19,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -206,13 +207,28 @@ class ProfileFragment : Fragment() , HasMenu{
 
                         if (ok) {
                             Log.d("OPEN", "Dør åpnet for leilighet $id")
+                            Toast.makeText(
+                                requireContext(),
+                                "Porttelefon aktivert, dør skal åpnes",
+                                Toast.LENGTH_LONG
+                            ).show()
                             // btn.isEnabled = false
                             // btn.text = "$address (åpnet)"
                         } else {
                             Log.e("OPEN", "Klarte ikke åpne dør for $id")
+                            Toast.makeText(
+                                requireContext(),
+                                "Kunne ikke åpne dør",
+                                Toast.LENGTH_LONG
+                            ).show()
                         }
                     } catch (e: Exception) {
                         Log.e("OPEN", "Feil under åpning av dør $id", e)
+                        Toast.makeText(
+                            requireContext(),
+                            "Kunne ikke åpne dør",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                 }
             }
