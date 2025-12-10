@@ -10,6 +10,12 @@ import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.lang.Exception
+
+data class ApartmentCreateResponse(
+    val id: Int,
+    val api_key: String
+)
 
 class ApartmentRepository(private val context: Context) {
 
@@ -17,23 +23,19 @@ class ApartmentRepository(private val context: Context) {
     private val client = HttpClientProvider.getInstance(context)
     private val gson = Gson()
 
+    /**
+     * Returnerer api_key fra server,
+     * eller null hvis noe feilet.
+     */
     suspend fun createApartment(
         address: String,
-        picoSerial: String,
-        apiKey: String
-    ): Boolean = withContext(Dispatchers.IO) {
-
-        //val token = tokenManager.getToken()
-        //if (token == null) {
-        //    Log.e("APT", "Ingen token funnet")
-        //    return@withContext false
-        //}
+        picoSerial: String
+    ): String? = withContext(Dispatchers.IO) {
 
         val bodyJson = gson.toJson(
             mapOf(
                 "address" to address,
-                "pico_serial" to picoSerial,
-                "api_key" to apiKey
+                "pico_serial" to picoSerial
             )
         )
 
@@ -47,14 +49,62 @@ class ApartmentRepository(private val context: Context) {
 
         try {
             client.newCall(request).execute().use { resp ->
+
                 if (!resp.isSuccessful) {
-                    Log.e("APT", "Feil: HTTP ${resp.code}")
-                    Log.e("APT", resp.body?.string() ?: "No body")
-                    return@withContext false
+                    Log.e("APT", "Feil: ${resp.code}")
+                    val errorText = resp.body?.string()
+                    Log.e("APT", "Body: $errorText")
+                    return@withContext null
                 }
 
-                Log.d("APT", "Apartment OK: ${resp.body?.string()}")
-                true
+                val json = resp.body?.string()
+                Log.d("APT", "Respons: $json")
+
+                val parsed = gson.fromJson(
+                    json,
+                    ApartmentCreateResponse::class.java
+                )
+
+                parsed.api_key
+            }
+        } catch (e: Exception) {
+            Log.e("APT", "Exception", e)
+            null
+        }
+    }
+    suspend fun deleteApartment(id: Int): Boolean = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("https://picobell.no/profile/apartments/$id")
+            .delete()
+            .build()
+
+        try {
+            client.newCall(request).execute().use { resp ->
+                resp.isSuccessful
+            }
+        } catch (e: Exception) {
+            Log.e("APT", "Exception", e)
+            false
+        }
+    }
+
+    suspend fun changeApartmentAddress(id: Int, address: String): Boolean = withContext(Dispatchers.IO) {
+        val bodyJson = gson.toJson(
+            mapOf(
+                "address" to address
+            )
+        )
+
+        val media = "application/json".toMediaType()
+        val requestBody = bodyJson.toRequestBody(media)
+        val request = Request.Builder()
+            .url("https://picobell.no/profile/apartments/$id")
+            .put(requestBody)
+            .build()
+
+        try {
+            client.newCall(request).execute().use { resp ->
+                resp.isSuccessful
             }
         } catch (e: Exception) {
             Log.e("APT", "Exception", e)

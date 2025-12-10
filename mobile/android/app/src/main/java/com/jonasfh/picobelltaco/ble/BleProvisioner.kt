@@ -156,11 +156,4 @@ class BleProvisioner(
 
         }
     }
-    companion object {
-        public fun generateApiKey(): String {
-            val bytes = ByteArray(32)
-            java.security.SecureRandom().nextBytes(bytes)
-            return bytes.joinToString("") { "%02x".format(it) }
-        }
-    }
 }

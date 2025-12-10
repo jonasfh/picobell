@@ -196,7 +196,6 @@ class DoorbellSetupFragment : Fragment(), HasMenu {
 
                 val ssid = ssidField?.text.toString()
                 val pwd = passField?.text.toString()
-                val apiKey = BleProvisioner.generateApiKey()
                 val device = seenDevices[name]!!
 
                 val aptRepo = ApartmentRepository(requireContext())
@@ -207,13 +206,12 @@ class DoorbellSetupFragment : Fragment(), HasMenu {
                     lifecycleScope.launch {
 
                         // 2. Opprett apartment
-                        val ok = aptRepo.createApartment(
+                        val apiKey = aptRepo.createApartment(
                             address = "Ny leilighet $name",
-                            picoSerial = picoMac,
-                            apiKey = apiKey
+                            picoSerial = picoMac
                         )
 
-                        if (!ok) {
+                        if (apiKey == null) {
                             Toast.makeText(
                                 requireContext(),
                                 "Kunne ikke opprette leilighet",
