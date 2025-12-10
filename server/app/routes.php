@@ -41,6 +41,7 @@ return function (App $app, Medoo $db) {
             $sub->get('', [$apartments, 'list']);
             $sub->post('', [$apartments, 'create']);
             $sub->put('/{id}', [$apartments, 'rename']);
+            $sub->delete('/{id}', [$apartments, 'delete']);
         });
     })->add([$auth, 'authMiddleware']);
 
