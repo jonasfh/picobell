@@ -42,7 +42,9 @@ return function (App $app, Medoo $db) {
             $sub->post('', [$apartments, 'create']);
             $sub->put('/{id}', [$apartments, 'rename']);
             $sub->delete('/{id}', [$apartments, 'delete']);
+            $sub->post('/{id}/open', [$apartments, 'openDoor']);
         });
+
     })->add([$auth, 'authMiddleware']);
 
     // === ADMIN ===
@@ -56,18 +58,8 @@ return function (App $app, Medoo $db) {
     $app->group('/doorbell', function ($group) use ($doorbell) {
         $group->post('/ring', [$doorbell, 'ring']);
         $group->post('/status', [$doorbell, 'status']);
-        $group->post('/open', [$doorbell, 'open']);
     })->add(function ($req, $handler) use ($auth) {
-        $path = $req->getUri()->getPath();
-
-        // Pico-endepunkt
-        if (str_starts_with($path, '/doorbell/ring') ||
-            str_starts_with($path, '/doorbell/status')) {
             return $auth->apartmentAuthMiddleware($req, $handler);
-        }
-
-        // App-endepunkt
-        return $auth->authMiddleware($req, $handler);
     });
 
 };

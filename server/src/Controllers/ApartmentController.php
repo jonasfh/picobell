@@ -149,4 +149,82 @@ class ApartmentController {
 
         return $res->withHeader('Content-Type', 'application/json');
     }
+
+
+    // === POST /profile/apartment/[id]/open ===
+    public function openDoor(Request $req, Response $res, array $args): Response
+    {
+        $userAttr = $req->getAttribute('user');
+        $userId = $userAttr['id'] ?? null;
+        $apartmentId = intval($args['id'] ?? null);
+        if (!$userId) {
+            $res->getBody()->write(json_encode([
+                "error" => "Unauthorized"
+            ]));
+            return $res->withStatus(401)->withHeader('Content-Type', 'application/json');
+        }
+
+        if (!$apartmentId) {
+            $res->getBody()->write(json_encode([
+                "error" => "Missing apartment ID"
+            ]));
+            return $res->withStatus(403)->withHeader('Content-Type', 'application/json');
+        }
+
+        // Sjekk om apartment id er knyttet til bruker. tabeller:
+        // users, user_apartment, apartments
+        $linkedApartment = $this->db->get('user_apartment', '*', [
+            'user_id' => $userId,
+            'apartment_id' => $apartmentId,
+        ]);
+        if (!$linkedApartment) {
+            $res->getBody()->write(json_encode([
+                "error" => "Apartment not linked to user"
+            ]));
+            return $res->withStatus(403)->withHeader('Content-Type', 'application/json');
+        }
+
+
+        // Finn siste doorbell-event for apartment
+        $picoSerial = $this->db->get('apartments', 'pico_serial', [
+            'id' => $apartmentId,
+        ]);
+        if (!$picoSerial) {
+            $res->getBody()->write(json_encode([
+                "error" => "No pico for apartment"
+            ]));
+            return $res->withStatus(404)->withHeader('Content-Type', 'application/json');
+        }
+        error_log("Looking for doorbell event for pico_serial: " . $picoSerial);
+        $from = date(
+            'Y-m-d H:i:s',
+            time() - intval(getenv('EVENT_RING_VALIDITY_SECONDS'))
+        );
+        error_log("Event after $from");
+        $event = $this->db->get('doorbell_events', '*', [
+            'pico_serial' => $picoSerial,
+            'created_at[>]' => $from,
+            'ORDER' => ['created_at' => 'DESC'],
+            'LIMIT' => 1,
+
+        ]);
+        if (!$event) {
+            $res->getBody()->write(json_encode([
+                "error" => "No active ring found"
+            ]));
+            return $res->withStatus(403)->withHeader('Content-Type', 'application/json');
+        }
+
+        // Sett open_requested = true
+        $this->db->update('doorbell_events', [
+            'open_requested' => true,
+        ], ['id' => $event['id']]);
+
+        $res->getBody()->write(json_encode([
+            'message' => 'Door open requested',
+            'event_id' => $event['id'],
+        ]));
+        return $res->withStatus(200)->withHeader('Content-Type', 'application/json');
+    }
+
 }

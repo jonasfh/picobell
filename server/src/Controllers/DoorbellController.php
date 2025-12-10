@@ -65,58 +65,6 @@ class DoorbellController
         ]);
     }
 
-    // === POST /doorbell/open ===
-    public function open(Request $req, Response $res): Response
-    {
-        $userAttr = $req->getAttribute('user');
-        $userId = $userAttr['id'] ?? null;
-        if (!$userId) {
-            return $this->jsonError($res, 'Unauthorized', 401);
-        }
-        $body = $req->getParsedBody();
-
-        $apartmentId = intval($body['apartment_id'] ?? null);
-        if (!$apartmentId) {
-            return $this->jsonError($res, 'Missing apartment_id', 400);
-        }
-
-        // Sjekk om apartment id er knyttet til bruker. tabeller:
-        // users, user_apartment, apartments
-        $linkedApartment = $this->db->get('user_apartment', '*', [
-            'user_id' => $userId,
-            'apartment_id' => $apartmentId,
-        ]);
-        if (!$linkedApartment) {
-            return $this->jsonError($res, 'Apartment not linked to user', 403);
-        }
-
-
-        // Finn siste doorbell-event for apartment
-        $picoSerial = $this->db->get('apartments', 'pico_serial', [
-            'id' => $apartmentId,
-        ]);
-        if (!$picoSerial) {
-            return $this->jsonError($res, 'No pico for apartment', 404);
-        }
-
-        $event = $this->db->get('doorbell_events', '*', [
-            'pico_serial' => $picoSerial,
-            'ORDER' => ['created_at' => 'DESC'],
-        ]);
-        if (!$event) {
-            return $this->jsonError($res, 'No active ring found', 404);
-        }
-
-        // Sett open_requested = true
-        $this->db->update('doorbell_events', [
-            'open_requested' => true,
-        ], ['id' => $event['id']]);
-
-        return $this->json($res, [
-            'message' => 'Door open requested',
-            'event_id' => $event['id'],
-        ]);
-    }
 
     // === GET /doorbell/status?pico_serial=XYZ ===
     public function status(Request $req, Response $res): Response
@@ -129,9 +77,14 @@ class DoorbellController
 
         $picoSerial = $apartment['pico_serial'];
 
+        $from = date(
+            'Y-m-d H:i:s',
+            time() - intval(getenv('EVENT_RING_VALIDITY_SECONDS'))
+        );
         $event = $this->db->get('doorbell_events', '*', [
             'pico_serial' => $picoSerial,
             'opened_at' => null,
+            'created_at[>=]' => $from,
             'ORDER' => ['created_at' => 'DESC'],
             'LIMIT' => 1,
         ]);
