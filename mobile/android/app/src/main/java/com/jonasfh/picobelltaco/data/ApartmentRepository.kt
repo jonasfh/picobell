@@ -111,4 +111,29 @@ class ApartmentRepository(private val context: Context) {
             false
         }
     }
+
+    suspend fun openApartmentDoor(id: Int): Boolean = withContext(Dispatchers.IO) {
+        val requestBody = "".toRequestBody("application/json".toMediaType())
+        val request = Request.Builder()
+            .url("https://picobell.no/profile/apartments/$id/open")
+            .post(requestBody)
+            .build()
+
+        try {
+            client.newCall(request).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    Log.e("APT", "Feil: ${resp.code}")
+                    val errorText = resp.body?.string()
+                    Log.e("APT", "Body: $errorText")
+                    false
+                }
+                val json = resp.body?.string()
+                Log.d("APT", "Respons: $json")
+                true
+            }
+        } catch (e: Exception) {
+            Log.e("APT", "Exception", e)
+            false
+        }
+    }
 }
