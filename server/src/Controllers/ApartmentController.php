@@ -34,20 +34,44 @@ class ApartmentController {
 
     public function create(Request $req, Response $res): Response {
         $data = $req->getParsedBody();
+        // fail if pico_serial is missing
+        if (!isset($data['pico_serial']) || !isset($data['address'])) {
+            $res->getBody()->write(json_encode([
+                "error" => "Missing pico_serial or address"
+            ]));
+            return $res->withStatus(400)->withHeader('Content-Type', 'application/json');
+        }
 
-        $apiKey = bin2hex(random_bytes(32));
-
+        // Fail if pico_serial is already in use
+        $existing = $this->db->get("apartments", "*", [
+            "pico_serial" => $data['pico_serial']
+        ]);
+        if ($existing) {
+            $res->getBody()->write(json_encode([
+                "error" => "Apartment with this pico_serial already exists"
+            ]));
+            return $res->withStatus(409)->withHeader('Content-Type', 'application/json');
+        }
+        $api_key = bin2hex(random_bytes(32));
+        // Create new apartment
         $this->db->insert("apartments", [
             "address" => $data['address'],
             "pico_serial" => $data['pico_serial'],
-            "api_key" => $apiKey,
+            "api_key" => $api_key,
             "created_at" => date("Y-m-d H:i:s"),
             "modified_at" => date("Y-m-d H:i:s")
         ]);
 
+        // Also link the apartment to the user creating it
+        $user = $req->getAttribute("user");
+        $this->db->insert("user_apartment", [
+            "user_id" => $user['id'],
+            "apartment_id" => $this->db->id(),
+        ]);
+
         $res->getBody()->write(json_encode([
             "id" => $this->db->id(),
-            "api_key" => $apiKey
+            "api_key" => $api_key
         ]));
 
         return $res->withHeader('Content-Type', 'application/json');
