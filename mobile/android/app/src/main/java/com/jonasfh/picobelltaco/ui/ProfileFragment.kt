@@ -240,8 +240,16 @@ class ProfileFragment : Fragment() , HasMenu{
         val btnDelete = Button(requireContext()).apply {
             text = "🗑️"
             setOnClickListener {
-                // TODO: Kall API for å slette leilighet
+                lifecycleScope.launch {
+                    val success = apartmentRepository.deleteApartment(id)
+                    if (success) {
+                        handler.post {
+                            row.visibility = View.GONE
+                        }
+                    }
+                }
             }
+
         }
 
         row.addView(btnOpen)
