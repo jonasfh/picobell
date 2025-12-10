@@ -40,6 +40,7 @@ return function (App $app, Medoo $db) {
         $group->group('/apartments', function ($sub) use ($apartments) {
             $sub->get('', [$apartments, 'list']);
             $sub->post('', [$apartments, 'create']);
+            $sub->put('/{id}', [$apartments, 'rename']);
         });
     })->add([$auth, 'authMiddleware']);
 

@@ -67,11 +67,50 @@ class ApartmentController {
         $this->db->insert("user_apartment", [
             "user_id" => $user['id'],
             "apartment_id" => $this->db->id(),
+            "role" => "owner",
         ]);
 
         $res->getBody()->write(json_encode([
             "id" => $this->db->id(),
             "api_key" => $api_key
+        ]));
+
+        return $res->withHeader('Content-Type', 'application/json');
+    }
+
+    public function rename(Request $req, Response $res, array $args): Response {
+        $apartmentId = $args['id'];
+        $data = $req->getParsedBody();
+        if (!isset($data['address'])) {
+            $res->getBody()->write(json_encode([
+                "error" => "Missing address"
+            ]));
+            return $res->withStatus(400)->withHeader('Content-Type', 'application/json');
+        }
+        // check that the user has access to this apartment, and is owner
+        $user = $req->getAttribute("user");
+        $access = $this->db->get("user_apartment", "*", [
+            "user_id" => $user['id'],
+            "apartment_id" => $apartmentId,
+            "role" => "owner"
+        ]);
+        if (!$access) {
+            $res->getBody()->write(json_encode([
+                "error" => "Must be owner to rename apartment"
+            ]));
+            return $res->withStatus(403)->withHeader('Content-Type', 'application/json');
+        }
+
+        // Update apartment address
+        $this->db->update("apartments", [
+            "address" => $data['address'],
+            "modified_at" => date("Y-m-d H:i:s")
+        ], [
+            "id" => $apartmentId
+        ]);
+
+        $res->getBody()->write(json_encode([
+            "message" => "Apartment renamed successfully"
         ]));
 
         return $res->withHeader('Content-Type', 'application/json');
