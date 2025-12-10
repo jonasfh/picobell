@@ -115,4 +115,38 @@ class ApartmentController {
 
         return $res->withHeader('Content-Type', 'application/json');
     }
+
+    public function delete(Request $req, Response $res, array $args): Response {
+        $apartmentId = $args['id'];
+        // check that the user has access to this apartment, and is owner
+        $user = $req->getAttribute("user");
+        $access = $this->db->get("user_apartment", "*", [
+            "user_id" => $user['id'],
+            "apartment_id" => $apartmentId,
+            "role" => "owner"
+        ]);
+        if (!$access) {
+            $res->getBody()->write(json_encode([
+                "error" => "Must be owner to delete apartment"
+            ]));
+            return $res->withStatus(403)->withHeader('Content-Type', 'application/json');
+        }
+
+        // delete all user_apartment links
+        $this->db->delete("user_apartment", [
+            "apartment_id" => $apartmentId
+        ]);
+
+        // Delete apartment
+        $this->db->delete("apartments", [
+            "id" => $apartmentId
+        ]);
+
+
+        $res->getBody()->write(json_encode([
+            "message" => "Apartment deleted successfully"
+        ]));
+
+        return $res->withHeader('Content-Type', 'application/json');
+    }
 }
