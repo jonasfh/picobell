@@ -261,6 +261,13 @@ class ProfileFragment : Fragment() , HasMenu{
                             row.visibility = View.GONE
                         }
                     }
+                    else {
+                        Toast.makeText(
+                            requireContext(),
+                            "Kunne ikke slette leilighet",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
                 }
             }
         }
