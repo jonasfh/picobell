@@ -51,14 +51,14 @@ class ApartmentRepository(private val context: Context) {
             client.newCall(request).execute().use { resp ->
 
                 if (!resp.isSuccessful) {
-                    Log.e("APT", "Feil: ${resp.code}")
+                    Log.e("APARTMENT", "Feil: ${resp.code}")
                     val errorText = resp.body?.string()
-                    Log.e("APT", "Body: $errorText")
+                    Log.e("APARTMENT", "Body: $errorText")
                     return@withContext null
                 }
 
                 val json = resp.body?.string()
-                Log.d("APT", "Respons: $json")
+                Log.d("APARTMENT", "Respons: $json")
 
                 val parsed = gson.fromJson(
                     json,
@@ -68,7 +68,7 @@ class ApartmentRepository(private val context: Context) {
                 parsed.api_key
             }
         } catch (e: Exception) {
-            Log.e("APT", "Exception", e)
+            Log.e("APARTMENT", "Exception", e)
             null
         }
     }
@@ -83,12 +83,14 @@ class ApartmentRepository(private val context: Context) {
                 resp.isSuccessful
             }
         } catch (e: Exception) {
-            Log.e("APT", "Exception", e)
+            Log.e("APARTMENT", "Exception", e)
             false
         }
     }
 
     suspend fun changeApartmentAddress(id: Int, address: String): Boolean = withContext(Dispatchers.IO) {
+        Log.d("APARTMENT", "Changing address to $address")
+
         val bodyJson = gson.toJson(
             mapOf(
                 "address" to address
@@ -101,13 +103,12 @@ class ApartmentRepository(private val context: Context) {
             .url("https://picobell.no/profile/apartments/$id")
             .put(requestBody)
             .build()
-
         try {
             client.newCall(request).execute().use { resp ->
                 resp.isSuccessful
             }
         } catch (e: Exception) {
-            Log.e("APT", "Exception", e)
+            Log.e("APARTMENT", "Exception", e)
             false
         }
     }
@@ -122,17 +123,17 @@ class ApartmentRepository(private val context: Context) {
         try {
             client.newCall(request).execute().use { resp ->
                 if (!resp.isSuccessful) {
-                    Log.e("APT", "Feil: ${resp.code}")
+                    Log.e("APARTMENT", "Feil: ${resp.code}")
                     val errorText = resp.body?.string()
-                    Log.e("APT", "Body: $errorText")
+                    Log.e("APARTMENT", "Body: $errorText")
                     false
                 }
                 val json = resp.body?.string()
-                Log.d("APT", "Respons: $json")
+                Log.d("APARTMENT", "Respons: $json")
                 true
             }
         } catch (e: Exception) {
-            Log.e("APT", "Exception", e)
+            Log.e("APARTMENT", "Exception", e)
             false
         }
     }

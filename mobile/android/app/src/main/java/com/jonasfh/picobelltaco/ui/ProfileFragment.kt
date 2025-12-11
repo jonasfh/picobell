@@ -8,6 +8,7 @@ import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
 import android.util.Log
 import android.view.Gravity
 import android.view.Menu
@@ -21,6 +22,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.core.view.isGone
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.jonasfh.picobelltaco.data.DeviceRepository
@@ -236,9 +238,21 @@ class ProfileFragment : Fragment() , HasMenu{
             setPadding(60, 60, 60, 60)
         }
         apartmentButtons.put(id, btnOpen)
-
+        // btnChangeAddress is used to open a textbox txtChangeAddress to change the address. The
+        // textbox is hidden by default, and hides the btnOpen when active. The textbox is shown
+        // when btnChangeAddress is pressed. txtChangeAddress should be editable.
+        val txtChangeAddress = android . widget . EditText(requireContext()).apply {
+            visibility = View.GONE
+            setText(address) // Pre-fill with the current address
+            textSize = 18f   // Fix: changed from 1 to 18f so it is visible
+            inputType = InputType.TYPE_CLASS_TEXT // Ensures standard text keyboard appears
+            layoutParams = LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+            )
+        }
         val btnDelete = Button(requireContext()).apply {
             text = "🗑️"
+            visibility = View.GONE
             setOnClickListener {
                 lifecycleScope.launch {
                     val success = apartmentRepository.deleteApartment(id)
@@ -249,10 +263,46 @@ class ProfileFragment : Fragment() , HasMenu{
                     }
                 }
             }
+        }
+        val btnChangeAddress = Button(requireContext()).apply {
+            text = "✏️"
 
+            setOnClickListener {
+                if (txtChangeAddress.isGone) {
+                    txtChangeAddress.visibility = View.VISIBLE
+                    btnDelete.visibility = View.VISIBLE
+                    btnOpen.visibility = View.GONE
+                } else {
+                    // log info
+                    Log.d("PROFILE", "Changing address to ${txtChangeAddress.text}")
+
+                    lifecycleScope.launch {
+                        Log.d("PROFILE", "Lifecycle scope launched")
+                        if (apartmentRepository.changeApartmentAddress(id, txtChangeAddress.text.toString())) {
+                            Log.d("PROFILE", "Address changed ${txtChangeAddress.text}")
+                            btnOpen.text = txtChangeAddress.text.toString()
+                        }
+                        else {
+                            Log.e("PROFILE", "Failed to change address")
+                            Toast.makeText(
+                                requireContext(),
+                                "Kunne ikke endre adressen",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                        txtChangeAddress.visibility = View.GONE
+                        btnOpen.visibility = View.VISIBLE
+                        btnDelete.visibility = View.GONE
+                    }
+                }
+            }
         }
 
+
+
         row.addView(btnOpen)
+        row.addView(txtChangeAddress)
+        row.addView(btnChangeAddress)
         row.addView(btnDelete)
         return row
     }
