@@ -1,0 +1,108 @@
+name: Release to Google Play
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check for changed files in server directory
+        id: changed-patterns
+        uses: ./actions/changed-patterns
+        with:
+          include_patterns: "mobile/android"
+
+      - name: >
+           ${{ steps.changed-patterns.outputs.patterns || 'none' }} changed
+        run: |
+          if [ "${{ steps.changed-patterns.outputs.patterns }}" != '' ]; then
+            echo "Changes detected in mobile/android/ folder"
+          else
+            echo "No relevant changes detected."
+          fi
+
+
+      - uses: actions/checkout@v5
+        if: steps.changed-patterns.outputs.patterns != ''
+
+      - name: Set up Java
+        if: steps.changed-patterns.outputs.patterns != ''
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Read version from gradle.kts
+        if: steps.changed-patterns.outputs.patterns != ''
+        id: version
+        run: |
+          vn=$(grep -oP \
+          'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+          vc=$(grep -oP \
+          'versionCode\s*=\s*\K\d+' app/build.gradle.kts)
+          echo "versionName=$vn" >> $GITHUB_OUTPUT
+          echo "versionCode=$vc" >> $GITHUB_OUTPUT
+
+      - name: Check if tag exists
+        if: steps.changed-patterns.outputs.patterns != ''
+        run: |
+          vn=${{ steps.version.outputs.versionName }}
+          if git tag --list | grep -q "v$vn"; then
+            echo "Tag v$vn exists"
+            exit 1
+          fi
+
+      - name: Set up Ruby
+        if: steps.changed-patterns.outputs.patterns != ''
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+
+      - name: Build AAB and apk files
+        if: steps.changed-patterns.outputs.patterns != ''
+        run: |
+          cd mobile/android
+          chmod +x ./gradlew
+          ./gradlew assembleRelease
+          # ./gradlew bundleRelease
+
+      - name: Create and push tag
+        if: steps.changed-patterns.outputs.patterns != ''
+        run: |
+          vn=${{ steps.version.outputs.versionName }}
+          # Use myself as the committer for the tag
+          git config user.name "Jonas F. Henriksen"
+          git config user.email "jonas.f.henriksen@gmail.com"
+          git tag "v$vn"
+          git push origin "v$vn"
+
+      - name: Create Release
+        if: steps.changed-patterns.outputs.patterns != ''
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "v${{ steps.version.outputs.versionName }}"
+          name: "v${{ steps.version.outputs.versionName }}"
+          body: "Release v${{ steps.version.outputs.versionName }}"
+          files: |
+            mobile/android/app/build/outputs/bundle/release/app-release-unsigned.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+#       - name: Install fastlane
+#         run: gem install fastlane
+#       - name: Prepare service account key
+#         run: |
+#           echo '${{ secrets.PLAY_SERVICE_ACCOUNT }}' \
+#           > service.json
+
+#       - name: Upload to Google Play
+#         run: |
+#           fastlane supply \
+#           --json_key service.json \
+#           --package_name com.dittpakkenavn.app \
+#           --aab app/build/outputs/bundle/release/\
+# app-release.aab \
+#           --track production
