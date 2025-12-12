@@ -44,7 +44,23 @@ jobs:
       - name: Checkout workflow repo
         uses: actions/checkout@v5
 
+      - name: Check for changed files in server directory
+        id: changed-patterns
+        uses: ./actions/changed-patterns
+        with:
+          include_patterns: "server"
+
+      - name: >
+           ${{ steps.changed-patterns.outputs.patterns || 'none' }} changed
+        run: |
+          if [ "${{ steps.changed-patterns.outputs.patterns }}" != '' ]; then
+            echo "Changes detected in server/ folder"
+          else
+            echo "No relevant changes detected."
+          fi
+
       - name: Setup SSH key
+        if: steps.changed-patterns.outputs.patterns != ''
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/id_rsa
@@ -53,8 +69,18 @@ jobs:
 
       - name: Deploy via SSH
         if: |
-          (matrix.environment == 'dev' && github.event_name == 'pull_request') ||
-          (matrix.environment == 'prod' && github.event_name == 'push' && github.ref == 'refs/heads/main')
+          (steps.changed-patterns.outputs.patterns != '') &&
+          (
+            (
+              matrix.environment == 'dev'
+              && github.event_name == 'pull_request'
+            )
+            ||
+            (
+              matrix.environment == 'prod' && github.event_name == 'push'
+              && github.ref == 'refs/heads/main'
+            )
+          )
         run: |
           ENV=${{ matrix.environment }}
           WEB_ROOT=${{ vars.WEB_ROOT }}
