@@ -56,7 +56,7 @@ class AuthManager(private val context: Context) {
 
                     val jwt = JSONObject(bodyStr ?: "").optString("token")
                     tokenManager.saveToken(jwt)
-                    Log.d("AUTH", "JWT lagret: ${jwt.take(20)}...")
+                    Log.d("AUTH", "JWT lagret...")
                     return@withContext jwt
                 }
             } catch (e: Exception) {

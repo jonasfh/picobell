@@ -112,7 +112,6 @@ class MainActivity : AppCompatActivity() {
                     if (jwt != null) {
                         val fcmToken = getFcmToken()
                         if (fcmToken != null) {
-                            Log.d("DEVICE", "fcmToken: $fcmToken")
                             deviceRepository.registerDevice(fcmToken)
                         }
                         // Vis profilfragment
@@ -138,7 +137,6 @@ class MainActivity : AppCompatActivity() {
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 val token = task.result
-                Log.d("FCM", "FCM Token ready: $token")
             } else {
                 Log.e("FCM", "Failed to fetch FCM token", task.exception)
             }
