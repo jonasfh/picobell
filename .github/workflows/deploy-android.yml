@@ -11,7 +11,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v5
 
-      - name: Check for changed files in server directory
+      - name: Check for changed files in mobile/android directory
         id: changed-patterns
         uses: ./actions/changed-patterns
         with:
