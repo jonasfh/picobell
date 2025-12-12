@@ -1,4 +1,4 @@
-name: Release to Google Play
+name: Deploy Android App
 
 on:
   workflow_dispatch:
@@ -21,8 +21,8 @@ jobs:
             echo "Changes detected in mobile/android/ folder"
           else
             echo "No relevant changes detected."
+            exit 1
           fi
-
 
       - uses: actions/checkout@v5
         if: steps.changed-patterns.outputs.patterns != ''
