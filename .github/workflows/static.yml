@@ -32,7 +32,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Check for changed files in server directory
+      - name: Check for changed files in pages/ directory
         id: changed-patterns
         uses: ./actions/changed-patterns
         with:
