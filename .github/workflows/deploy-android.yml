@@ -8,6 +8,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v5
+
       - name: Check for changed files in server directory
         id: changed-patterns
         uses: ./actions/changed-patterns
@@ -24,8 +27,6 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/checkout@v5
-        if: steps.changed-patterns.outputs.patterns != ''
 
       - name: Set up Java
         if: steps.changed-patterns.outputs.patterns != ''
