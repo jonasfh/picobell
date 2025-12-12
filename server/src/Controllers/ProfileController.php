@@ -21,7 +21,7 @@ class ProfileController {
                     "apartments.id" => "apartment_id",
                     "AND" => ["user_id" => $profile['id']]
                 ]],
-                ["apartments.id", "apartments.address",
+                ["apartments.id", "apartments.address", "user_apartment.role",
                  "apartments.created_at", "apartments.modified_at"]
             );
         } catch (\Exception $e) {
