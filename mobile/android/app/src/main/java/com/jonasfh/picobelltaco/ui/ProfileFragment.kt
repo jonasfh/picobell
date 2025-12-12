@@ -142,7 +142,7 @@ class ProfileFragment : Fragment() , HasMenu{
                 layout.addView(textLine("(ingen registrert)"))
             } else {
                 profile.apartments.forEach { apt ->
-                    layout.addView(apartmentRow(apt.address, apt.id))
+                    layout.addView(apartmentRow(apt.address, apt.id, apt.role))
                 }
             }
 
@@ -190,7 +190,7 @@ class ProfileFragment : Fragment() , HasMenu{
             setPadding(16, 8, 0, 8)
         }
 
-    private fun apartmentRow(address: String, id: Int): LinearLayout {
+    private fun apartmentRow(address: String, id: Int, role: String = ""): LinearLayout {
         val row = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -273,6 +273,10 @@ class ProfileFragment : Fragment() , HasMenu{
         }
         val btnChangeAddress = Button(requireContext()).apply {
             text = "✏️"
+            // hide if not owner
+            if (role != "owner")
+                visibility = View.GONE
+
 
             setOnClickListener {
                 if (txtChangeAddress.isGone) {

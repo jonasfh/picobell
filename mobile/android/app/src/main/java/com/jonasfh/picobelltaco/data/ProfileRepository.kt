@@ -53,6 +53,7 @@ data class ProfileResponse(
 data class Apartment(
     val id: Int,
     val address: String,
+    val role: String,
     val created_at: String,
     val modified_at: String
 )
