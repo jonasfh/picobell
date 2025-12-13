@@ -12,8 +12,8 @@ android {
         applicationId = "com.jonasfh.picobelltaco"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.0.1"
+        versionCode = 4
+        versionName = "1.0.2"
         buildConfigField("String", "SERVER_URL", "\"https://picobell.no\"")
         buildConfigField("String", "OAUTH2_CLIENT_ID", "\"1032602808859-892rqn0vi2i963d1n65d3kpsimi37nrk.apps.googleusercontent.com\"")
     }
