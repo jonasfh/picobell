@@ -33,11 +33,25 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Check if tag exists
+      - name: Check if tags exists
         run: |
           vn=${{ steps.version.outputs.versionName }}
-          if git tag --list | grep -q "v$vn"; then
+          if git tag --list | grep -e "^v$vn$"; then
             echo "Tag v$vn exists"
+            exit 1
+          fi
+          vc=${{ steps.version.outputs.versionCode }}
+          if git tag --list | grep -e "^version_code_$vc$"; then
+            echo "Tag version_code_$vc exists"
+            exit 1
+          fi
+
+      - name: >
+          Verify CHANGELOG.md has Ver. ${{ steps.version.outputs.versionName }}
+        run: |
+          vn="${{ steps.version.outputs.versionName }}"
+          if ! grep -e "##.* \+$vn \+.*" CHANGELOG.md; then
+            echo "CHANGELOG.md does not contain entry for version $vn"
             exit 1
           fi
 
@@ -71,11 +85,15 @@ jobs:
       - name: Create and push tag
         run: |
           vn=${{ steps.version.outputs.versionName }}
+          vc=${{ steps.version.outputs.versionCode }}
+          vctag="version_code_$vc"
           # Use myself as the committer for the tag
           git config user.name "Jonas F. Henriksen"
           git config user.email "jonas.f.henriksen@gmail.com"
           git tag "v$vn"
           git push origin "v$vn"
+          git tag "$vctag"
+          git push origin "$vctag"
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
