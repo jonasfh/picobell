@@ -62,6 +62,12 @@ jobs:
           ./gradlew assembleRelease
           # ./gradlew bundleRelease
 
+      - name: Recursively list build outputs
+        run: |
+          cd mobile/android/app/build/outputs
+          find . -type f
+
+
       - name: Create and push tag
         run: |
           vn=${{ steps.version.outputs.versionName }}
@@ -78,7 +84,7 @@ jobs:
           name: "v${{ steps.version.outputs.versionName }}"
           body: "Release v${{ steps.version.outputs.versionName }}"
           files: |
-            mobile/android/app/build/outputs/bundle/release/app-release-unsigned.apk
+            mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
