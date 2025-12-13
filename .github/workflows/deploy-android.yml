@@ -14,6 +14,7 @@ jobs:
       - name: Read version from gradle.kts
         id: version
         run: |
+          cd mobile/android
           vn=$(grep -oP \
           'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
           vc=$(grep -oP \
@@ -26,7 +27,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       - name: Check if tag exists
         run: |
