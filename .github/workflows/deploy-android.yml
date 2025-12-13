@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   release:
+    name: Build and Deploy Android App
     runs-on: ubuntu-latest
     environment: prod
 
@@ -68,20 +69,55 @@ jobs:
           | base64 --decode \
           > mobile/android/app/google-services.json
 
+      - name: Restore Android signing keystore
+        id: keystore
+        run: |
+          mkdir -p mobile/android/keystore
+          ST_PATH=mobile/android/keystore/release.keystore
+          echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 --decode > $ST_PATH
+          ls -l $ST_PATH
+          echo "keystore=$ST_PATH" >> $GITHUB_OUTPUT
+
+      # Locate the apksigner took in the JDK
+      - name: Locate apksigner
+        id: apksigner
+        run: |
+          echo Fail if ANDROID_SDK_ROOT is not set
+          [ -z "$ANDROID_SDK_ROOT" ] && exit 1
+
+          APKSIGNER_PATH=$(ls $ANDROID_SDK_ROOT/build-tools/*/apksigner | sort | tail -n 1)
+          echo "Located apksigner at $APKSIGNER_PATH"
+          echo "apksigner=$APKSIGNER_PATH" >> $GITHUB_OUTPUT
+
+
+
       - name: Build AAB and apk files
         env:
-              ORG_GRADLE_JAVA_HOME: ${{ env.JAVA_HOME }}
+          ORG_GRADLE_JAVA_HOME: ${{ env.JAVA_HOME }}
         run: |
           cd mobile/android
           chmod +x ./gradlew
           ./gradlew assembleRelease
           # ./gradlew bundleRelease
 
+      - name: Sign release APK
+        run: |
+          APK=mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          APK_SIGNED=mobile/android/app/build/outputs/apk/release/app-release.apk
+
+          ${{ steps.apksigner.outputs.apksigner }} sign \
+            --ks ${{ steps.keystore.outputs.keystore }} \
+            --ks-key-alias "${{ vars.ANDROID_KEY_ALIAS }}" \
+            --ks-pass pass:"${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            --out $APK_SIGNED \
+            "$APK"
+
+          ${{ steps.apksigner.outputs.apksigner }} verify $APK_SIGNED
+
       - name: Recursively list build outputs
         run: |
           cd mobile/android/app/build/outputs
           find . -type f
-
 
       - name: Create and push tag
         run: |
@@ -101,9 +137,9 @@ jobs:
         with:
           tag_name: "v${{ steps.version.outputs.versionName }}"
           name: "v${{ steps.version.outputs.versionName }}"
-          body: "Release v${{ steps.version.outputs.versionName }}"
+          body_path: ${{ github.workspace }}/mobile/android/CHANGELOG.md
           files: |
-            mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk
+            mobile/android/app/build/outputs/apk/release/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -1,6 +1,11 @@
 Changelog for the Picobell Android application
 ==============================================
 
+## Version 1.0.3 (2025-12-13)
+
+- Sign apk file before publishing release
+- Fix deploy pipeline to publish the signed apk file
+
 ## Version 1.0.2 (2025-12-13)
 
 - Minor changes to deploy pipeline
