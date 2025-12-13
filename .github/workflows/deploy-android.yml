@@ -49,6 +49,7 @@ jobs:
       - name: >
           Verify CHANGELOG.md has Ver. ${{ steps.version.outputs.versionName }}
         run: |
+          cd mobile/android
           vn="${{ steps.version.outputs.versionName }}"
           if ! grep -e "##.* \+$vn \+.*" CHANGELOG.md; then
             echo "CHANGELOG.md does not contain entry for version $vn"
