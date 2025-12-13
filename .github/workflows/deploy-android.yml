@@ -3,9 +3,13 @@ name: Deploy Android App
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment: prod
 
     steps:
       - name: Checkout repo
@@ -42,8 +46,16 @@ jobs:
         with:
           ruby-version: "3.3"
 
+      - name: Create google-services.json
+        run: |
+          mkdir -p mobile/android/app
+          echo "${{ secrets.GOOGLE_SERVICES_JSON_B64 }}" \
+          | base64 --decode \
+          > mobile/android/app/google-services.json
 
       - name: Build AAB and apk files
+        env:
+              ORG_GRADLE_JAVA_HOME: ${{ env.JAVA_HOME }}
         run: |
           cd mobile/android
           chmod +x ./gradlew
