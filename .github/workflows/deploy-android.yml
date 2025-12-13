@@ -11,32 +11,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v5
 
-      - name: Check for changed files in mobile/android directory
-        id: changed-patterns
-        uses: ./actions/changed-patterns
-        with:
-          include_patterns: "mobile/android"
-
-      - name: >
-           ${{ steps.changed-patterns.outputs.patterns || 'none' }} changed
-        run: |
-          if [ "${{ steps.changed-patterns.outputs.patterns }}" != '' ]; then
-            echo "Changes detected in mobile/android/ folder"
-          else
-            echo "No relevant changes detected."
-            exit 1
-          fi
-
-
-      - name: Set up Java
-        if: steps.changed-patterns.outputs.patterns != ''
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
-
       - name: Read version from gradle.kts
-        if: steps.changed-patterns.outputs.patterns != ''
         id: version
         run: |
           vn=$(grep -oP \
@@ -46,8 +21,14 @@ jobs:
           echo "versionName=$vn" >> $GITHUB_OUTPUT
           echo "versionCode=$vc" >> $GITHUB_OUTPUT
 
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
       - name: Check if tag exists
-        if: steps.changed-patterns.outputs.patterns != ''
         run: |
           vn=${{ steps.version.outputs.versionName }}
           if git tag --list | grep -q "v$vn"; then
@@ -56,14 +37,12 @@ jobs:
           fi
 
       - name: Set up Ruby
-        if: steps.changed-patterns.outputs.patterns != ''
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
 
 
       - name: Build AAB and apk files
-        if: steps.changed-patterns.outputs.patterns != ''
         run: |
           cd mobile/android
           chmod +x ./gradlew
@@ -71,7 +50,6 @@ jobs:
           # ./gradlew bundleRelease
 
       - name: Create and push tag
-        if: steps.changed-patterns.outputs.patterns != ''
         run: |
           vn=${{ steps.version.outputs.versionName }}
           # Use myself as the committer for the tag
@@ -81,7 +59,6 @@ jobs:
           git push origin "v$vn"
 
       - name: Create Release
-        if: steps.changed-patterns.outputs.patterns != ''
         uses: softprops/action-gh-release@v1
         with:
           tag_name: "v${{ steps.version.outputs.versionName }}"
