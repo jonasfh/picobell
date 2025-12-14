@@ -6,6 +6,9 @@ on:
 permissions:
   contents: write
 
+env:
+  BUILD_OUTPUT: mobile/android/app/build/outputs/apk/release
+
 jobs:
   release:
     name: Build and Deploy Android App
@@ -79,16 +82,28 @@ jobs:
           echo "keystore=$ST_PATH" >> $GITHUB_OUTPUT
 
       # Locate the apksigner took in the JDK
+      - name: make sure ANDROID_SDK_ROOT is set
+        run: |
+          if [ -z "$ANDROID_SDK_ROOT" ]; then
+            echo "ANDROID_SDK_ROOT is not set"
+            exit 1
+          else
+            echo "ANDROID_SDK_ROOT is set to $ANDROID_SDK_ROOT"
+          fi
+
       - name: Locate apksigner
         id: apksigner
         run: |
-          echo Fail if ANDROID_SDK_ROOT is not set
-          [ -z "$ANDROID_SDK_ROOT" ] && exit 1
-
           APKSIGNER_PATH=$(ls $ANDROID_SDK_ROOT/build-tools/*/apksigner | sort | tail -n 1)
           echo "Located apksigner at $APKSIGNER_PATH"
           echo "apksigner=$APKSIGNER_PATH" >> $GITHUB_OUTPUT
 
+      - name: Locate zipalign
+        id: zipalign
+        run: |
+          ZIPALIGN_PATH=$(ls $ANDROID_SDK_ROOT/build-tools/*/zipalign | sort | tail -n 1)
+          echo "Located zipalign at $ZIPALIGN_PATH"
+          echo "zipalign=$ZIPALIGN_PATH" >> $GITHUB_OUTPUT
 
 
       - name: Build AAB and apk files
@@ -100,19 +115,36 @@ jobs:
           ./gradlew assembleRelease
           # ./gradlew bundleRelease
 
+      - name: Align release APK
+        run: |
+          APK_UNALIGNED=${{ env.BUILD_OUTPUT }}/app-release-unsigned.apk
+          APK_ALIGNED=${{ env.BUILD_OUTPUT }}/app-release-unsigned-aligned.apk
+
+          ${{ steps.zipalign.outputs.zipalign }} -v -p 4 \
+            "$APK_UNALIGNED" \
+            "$APK_ALIGNED"
+
       - name: Sign release APK
         run: |
-          APK=mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk
-          APK_SIGNED=mobile/android/app/build/outputs/apk/release/app-release.apk
+          APK_ALIGNED=${{ env.BUILD_OUTPUT }}/app-release-unsigned-aligned.apk
+          APK_SIGNED=${{ env.BUILD_OUTPUT }}/app-release.apk
 
           ${{ steps.apksigner.outputs.apksigner }} sign \
             --ks ${{ steps.keystore.outputs.keystore }} \
             --ks-key-alias "${{ vars.ANDROID_KEY_ALIAS }}" \
             --ks-pass pass:"${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
             --out $APK_SIGNED \
-            "$APK"
+            "$APK_ALIGNED"
 
           ${{ steps.apksigner.outputs.apksigner }} verify $APK_SIGNED
+
+      - name: Rename APK picobell version
+        id: apk-release
+        run: |
+          vn=${{ steps.version.outputs.versionName }}
+          mv ${{ env.BUILD_OUTPUT }}/app-release.apk \
+            ${{ env.BUILD_OUTPUT }}/picobell-v$vn.apk
+          echo "apk-release=${{ env.BUILD_OUTPUT }}/picobell-v$vn.apk" >> $GITHUB_OUTPUT
 
       - name: Recursively list build outputs
         run: |
@@ -139,7 +171,7 @@ jobs:
           name: "v${{ steps.version.outputs.versionName }}"
           body_path: ${{ github.workspace }}/mobile/android/CHANGELOG.md
           files: |
-            mobile/android/app/build/outputs/apk/release/app-release.apk
+            ${{ steps.apk-release.outputs.apk-release }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
