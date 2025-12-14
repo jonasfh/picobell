@@ -1,6 +1,10 @@
 Changelog for the Picobell Android application
 ==============================================
 
+## Version 1.0.4 (2025-12-14)
+
+- Align apk file before signing to fix install issues.
+
 ## Version 1.0.3 (2025-12-13)
 
 - Sign apk file before publishing release
