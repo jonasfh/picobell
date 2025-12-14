@@ -5,6 +5,8 @@ on:
   # Runs on pushes targeting the default branch
   push:
     branches: ["main"]
+    paths:
+      - 'pages/**'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -32,32 +34,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Check for changed files in pages/ directory
-        id: changed-patterns
-        uses: ./actions/changed-patterns
-        with:
-          include_patterns: "pages"
-
-      - name: >
-           ${{ steps.changed-patterns.outputs.patterns || 'none' }} changed
-        run: |
-          if [ "${{ steps.changed-patterns.outputs.patterns }}" != '' ]; then
-            echo "Changes detected in pages/ folder"
-          else
-            echo "No relevant changes detected."
-          fi
 
       - name: Setup Pages
-        if: steps.changed-patterns.outputs.patterns != ''
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
-        if: steps.changed-patterns.outputs.patterns != ''
         uses: actions/upload-pages-artifact@v4
         with:
           path: 'pages'
 
       - name: Deploy to GitHub Pages
-        if: steps.changed-patterns.outputs.patterns != ''
         id: deployment
         uses: actions/deploy-pages@v4

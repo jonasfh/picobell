@@ -1,12 +1,18 @@
 name: Deploy to server
 
+# only on changes to folder server/
 on:
   push:
     branches:
       - main
+    paths:
+      - server/**
   pull_request:
     branches:
       - main
+    paths:
+      - server/**
+
 
 env:
   # Variables
@@ -44,23 +50,7 @@ jobs:
       - name: Checkout workflow repo
         uses: actions/checkout@v5
 
-      - name: Check for changed files in server directory
-        id: changed-patterns
-        uses: ./actions/changed-patterns
-        with:
-          include_patterns: "server"
-
-      - name: >
-           ${{ steps.changed-patterns.outputs.patterns || 'none' }} changed
-        run: |
-          if [ "${{ steps.changed-patterns.outputs.patterns }}" != '' ]; then
-            echo "Changes detected in server/ folder"
-          else
-            echo "No relevant changes detected."
-          fi
-
       - name: Setup SSH key
-        if: steps.changed-patterns.outputs.patterns != ''
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/id_rsa
@@ -69,7 +59,6 @@ jobs:
 
       - name: Deploy via SSH
         if: |
-          (steps.changed-patterns.outputs.patterns != '') &&
           (
             (
               matrix.environment == 'dev'
