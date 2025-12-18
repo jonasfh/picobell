@@ -126,6 +126,33 @@ def get_device_api_key():
     mac = wlan.config("mac")
     return mac.hex()
 
+def check_open_status(api_key):
+    url = "https://picobell.no/doorbell/status"
+
+    headers = {
+        "Authorization": "Apartment " + api_key,
+        "Content-Type": "application/json"
+    }
+
+    try:
+        r = urequests.post(url, headers=headers, json={})
+        if r.status_code == 200:
+            data = r.json()
+            return data.get("open", False)
+
+        r.close()
+    except Exception as e:
+        print("Status check failed:", e)
+
+    return False
+
+
+def pulse_door(pin, duration=0.3):
+    pin.init(machine.Pin.OUT)
+    pin.value(0)
+    time.sleep(duration)
+    pin.init(machine.Pin.IN, machine.Pin.PULL_UP)
+
 
 # ------------------------
 # Boot logic
@@ -150,6 +177,9 @@ else:
 # ------------------------
 print("Run loop...")
 
+ring_ts = 0
+status_counter = 0
+
 while True:
     # Long press = reboot
     if long_press(btn, 10000):
@@ -161,6 +191,20 @@ while True:
     if short_press(ring, 5000):
         print("RING detected!")
         send_ring_event(device_api_key)
-        time.sleep(10) # dont send multiple rings in a row
+        ring_ts = time.time()
+        status_counter = 0
+        time.sleep(10)  # dont send multiple rings in a row
+
+    # Check open-status for 5 minutes after ring
+    if ring_ts and time.time() - ring_ts < 300:
+        status_counter += 1
+
+        if status_counter >= 60:
+            status_counter = 0
+            print("Checking open status...")
+            if check_open_status(device_api_key):
+                print("Åpner døren")
+                pulse_door(ring)
+                ring_ts = 0  # stop further checks
 
     time.sleep(0.05)
