@@ -18,7 +18,6 @@ flowchart LR
 
     subgraph SERVER
         API["REST API (FastAPI/Flask)"]
-        QUEUE["Message Queue (opsjon)"]
         FCM[Firebase Cloud Messaging]
     end
 
