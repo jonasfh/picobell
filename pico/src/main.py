@@ -5,6 +5,9 @@ import network
 import ujson
 import urequests
 from ble_provision import BLEProvision
+from version import FW_VERSION
+
+print("Firmware version:", FW_VERSION)
 
 BTN_PIN = 15          # long-press → reboot
 RING_PIN = 10         # short press → "ring" event
@@ -97,7 +100,8 @@ def send_ring_event(api_key):
 
     headers = {
         "Authorization": "Apartment " + api_key,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "X-FW-Version": FW_VERSION,
     }
 
     payload = {}
@@ -131,7 +135,8 @@ def check_open_status(api_key):
 
     headers = {
         "Authorization": "Apartment " + api_key,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "X-FW-Version": FW_VERSION,
     }
 
     try:

@@ -9,6 +9,9 @@ use App\Middleware\LogMiddleware;
 
 require __DIR__ . '/../vendor/autoload.php';
 
+// Last FW version
+require __DIR__ . '/../generated/fw_version.php';
+
 EnvLoader::load(__DIR__ . '/../config/.env');
 
 
