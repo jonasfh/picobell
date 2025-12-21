@@ -16,6 +16,48 @@ WIFI_FILE = "/flash/wifi.json"
 btn = machine.Pin(BTN_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
 ring = machine.Pin(RING_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
 
+LED = machine.Pin("LED", machine.Pin.OUT)
+LED.off()
+
+LED_MODE_WIFI = 1
+LED_MODE_BLE = 2
+
+
+led_mode = None
+led_last_toggle = 0
+led_state = 0
+
+
+def led_toggle():
+    global led_state
+    led_state ^= 1
+    LED.value(led_state)
+
+
+def led_update():
+    global led_last_toggle, led_state
+
+    now = time.ticks_ms()
+
+    if led_mode == LED_MODE_WIFI:
+        # Kort blink hvert 2. sekund
+
+        if time.ticks_diff(now, led_last_toggle) > 5000:
+            LED.on()
+            led_state = 1
+            led_last_toggle = now
+
+        if led_state == 1 and time.ticks_diff(now, led_last_toggle) > 100:
+            LED.off()
+            led_state = 0
+
+    elif led_mode == LED_MODE_BLE:
+        # Toggle hvert 500 ms
+        if time.ticks_diff(now, led_last_toggle) > 500:
+            led_toggle()
+            led_last_toggle = now
+
+
 
 # ------------------------
 # Utility functions
@@ -92,6 +134,7 @@ def start_ble(max_time=300):
             print("BLE timeout")
             break
 
+        led_update()
         time.sleep(0.5)
 
 
@@ -168,13 +211,18 @@ device_api_key = get_device_api_key()
 
 if not has_wifi():
     print("wifi.json missing → BLE")
+    led_mode = LED_MODE_BLE
     start_ble()
 else:
     cred = load_wifi()
     ok = connect_wifi(cred["ssid"], cred["pwd"], 20)
-    if not ok:
+    if ok:
+        led_mode = LED_MODE_WIFI
+    else:
         print("Wi-Fi fail → BLE")
+        led_mode = LED_MODE_BLE
         start_ble()
+
 
 
 # ------------------------
@@ -212,4 +260,5 @@ while True:
                 pulse_door(ring)
                 ring_ts = 0  # stop further checks
 
+    led_update()
     time.sleep(0.05)
