@@ -72,5 +72,4 @@ flowchart TD
 
     R2 --> GND
     BREG --> GND
-    V33 --> GND
 ```
