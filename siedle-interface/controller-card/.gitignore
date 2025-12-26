@@ -1,0 +1,19 @@
+# KiCad cache / temp
+*.kicad_prl
+*.kicad_sch-bak
+*.kicad_pcb-bak
+*-backups/
+
+# Gerber / produksjon
+/gerber/
+/fabrication/
+*.gbr
+*.drl
+*.pos
+
+# OS / editor
+.DS_Store
+
+~*
+#auto_saved_files#
+\#auto_saved_files#
