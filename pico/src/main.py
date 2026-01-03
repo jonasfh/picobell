@@ -1,264 +1,219 @@
-# main.py - Boot + Wi-Fi + BLE + long-press reboot + ring detection
-import time
-import machine
-import network
-import ujson
-import urequests
-from ble_provision import BLEProvision
+# main.py
+import sys
+import hal
+import config
+from ota import OTAUpdater
 from version import FW_VERSION
 
-print("Firmware version:", FW_VERSION)
+# Try to import BLE, but allow failure for host testing if not mocked/available
+try:
+    from ble_provision import BLEProvision
+except ImportError:
+    BLEProvision = None
 
-BTN_PIN = 15          # long-press → reboot
-RING_PIN = 10         # short press → "ring" event
-WIFI_FILE = "/flash/wifi.json"
+class DoorbellApp:
+    def __init__(self, hardware_layer):
+        self.hal = hardware_layer
+        self.ota = OTAUpdater(self.hal, FW_VERSION)
 
-btn = machine.Pin(BTN_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
-ring = machine.Pin(RING_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
+        # Pins
+        self.pin_btn = self.hal.create_pin_in(config.PIN_BTN_BOOT, pull_up=True)
+        self.pin_ring = self.hal.create_pin_in(config.PIN_RING_IN, pull_up=True) # Input from Optocoupler
+        self.pin_door = self.hal.create_pin_out(config.PIN_DOOR_OUT)             # Output to Optocoupler
 
-LED = machine.Pin("LED", machine.Pin.OUT)
-LED.off()
+        # We assume LED pin is handled by HAL or machine but HAL.create_pin_out can handle "LED" string if implemented
+        # Our HAL implementation: create_pin_out(pin_id)
+        # config.PIN_LED is "LED"
+        self.pin_led = self.hal.create_pin_out(config.PIN_LED)
+        self.pin_led.off()
 
-LED_MODE_WIFI = 1
-LED_MODE_BLE = 2
+        # State
+        self.led_state = 0
+        self.led_last_toggle = 0
+        self.led_mode = 0 # 0=OFF, 1=WIFI, 2=BLE
 
+        self.ring_ts = 0
+        self.status_check_ts = 0
 
-led_mode = None
-led_last_toggle = 0
-led_state = 0
+        self.api_key = None
+        self.wifi_creds = None
 
+    def led_update(self):
+        now = self.hal.get_time_ms()
 
-def led_toggle():
-    global led_state
-    led_state ^= 1
-    LED.value(led_state)
+        if self.led_mode == 1: # WIFI (Short blink)
+            if self.hal.time_diff(self.led_last_toggle) > 2000:
+                self.pin_led.on()
+                self.led_state = 1
+                self.led_last_toggle = now
+            elif self.led_state == 1 and self.hal.time_diff(self.led_last_toggle) > 100:
+                self.pin_led.off()
+                self.led_state = 0
 
+        elif self.led_mode == 2: # BLE (Fast toggle)
+            if self.hal.time_diff(self.led_last_toggle) > 500:
+                self.pin_led.value(not self.pin_led.value())
+                self.led_last_toggle = now
 
-def led_update():
-    global led_last_toggle, led_state
-
-    now = time.ticks_ms()
-
-    if led_mode == LED_MODE_WIFI:
-        # Kort blink hvert 2. sekund
-
-        if time.ticks_diff(now, led_last_toggle) > 5000:
-            LED.on()
-            led_state = 1
-            led_last_toggle = now
-
-        if led_state == 1 and time.ticks_diff(now, led_last_toggle) > 100:
-            LED.off()
-            led_state = 0
-
-    elif led_mode == LED_MODE_BLE:
-        # Toggle hvert 500 ms
-        if time.ticks_diff(now, led_last_toggle) > 500:
-            led_toggle()
-            led_last_toggle = now
-
-
-
-# ------------------------
-# Utility functions
-# ------------------------
-def has_wifi():
-    try:
-        with open(WIFI_FILE) as f:
-            data = ujson.load(f)
-            return ("ssid" in data) and ("pwd" in data)
-    except:
+    def load_wifi_creds(self):
+        data = self.hal.load_json(config.FILE_WIFI)
+        if data and "ssid" in data and "pwd" in data:
+            self.wifi_creds = data
+            if "device_api_key" in data:
+                self.api_key = data["device_api_key"]
+            return True
         return False
 
+    def get_api_key(self):
+        if self.api_key:
+            return self.api_key
+        # Fallback to MAC
+        return self.hal.get_mac_address()
 
-def load_wifi():
-    with open(WIFI_FILE) as f:
-        return ujson.load(f)
+    def connect_wifi(self):
+        if not self.wifi_creds:
+            return False
 
-
-def connect_wifi(ssid, pwd, timeout=20):
-    wifi = network.WLAN(network.STA_IF)
-    wifi.active(True)
-    wifi.connect(ssid, pwd)
-    print("Connecting:", ssid)
-
-    t0 = time.ticks_ms()
-    while time.ticks_diff(time.ticks_ms(), t0) < timeout * 1000:
-        if wifi.isconnected():
-            print("Wi-Fi OK:", wifi.ifconfig())
+        print("Connecting to Wi-Fi...")
+        if self.hal.connect_wifi(self.wifi_creds["ssid"], self.wifi_creds["pwd"]):
+            print("Wi-Fi Connected")
             return True
-        time.sleep(0.3)
+        print("Wi-Fi Connection Failed")
+        return False
 
-    print("Wi-Fi failed.")
-    return False
+    def start_ble_provisioning(self):
+        print("Starting BLE Provisioning...")
+        if not BLEProvision:
+            print("BLE module not available")
+            return
 
+        self.led_mode = 2
+        prov = BLEProvision()
+        prov.start()
 
-def long_press(pin, hold_ms=10000):
-    if pin.value() == 0:
-        print("Button press start")
-        t0 = time.ticks_ms()
-        while pin.value() == 0:
-            dt = time.ticks_diff(time.ticks_ms(), t0)
-            if dt > hold_ms:
-                return True
-            time.sleep(0.1)
-    return False
+        t0 = self.hal.get_time_ms()
+        while True:
+            if prov.is_provisioned:
+                print("Provisioned! Rebooting...")
+                self.hal.sleep(0.5)
+                self.hal.reset_device()
 
+            # Timeout 5 mins
+            if self.hal.time_diff(t0) > 300000:
+                print("BLE Timeout")
+                break
 
-def short_press(pin, max_ms=300):
-    # LOW = pressed; detect short momentary press
-    if pin.value() == 0:
-        print("Detecting short press...")
-        t0 = time.ticks_ms()
-        while pin.value() == 0:
-            # debounce hold
-            time.sleep(0.01)
-        dt = time.ticks_diff(time.ticks_ms(), t0)
-        return dt < max_ms
-    return False
+            self.led_update()
+            self.hal.sleep_ms(100)
 
+    def send_ring_event(self):
+        url = config.URL_RING
+        key = self.get_api_key()
+        headers = {
+            "Authorization": "Apartment " + key,
+            "Content-Type": "application/json",
+            "X-FW-Version": FW_VERSION,
+        }
+        print("Sending RING event...")
+        self.hal.http_post(url, headers, {})
 
-def start_ble(max_time=300):
-    print("BLE start")
-    prov = BLEProvision()
-    prov.start()
+    def check_open_status(self):
+        url = config.URL_STATUS
+        key = self.get_api_key()
+        headers = {
+            "Authorization": "Apartment " + key,
+            "Content-Type": "application/json",
+            "X-FW-Version": FW_VERSION,
+        }
 
-    t0 = time.ticks_ms()
-    while True:
-        if prov.is_provisioned:
-            print("Provision OK → reboot")
-            time.sleep(0.5)
-            machine.reset()
+        r = self.hal.http_post(url, headers, {})
+        if r:
+            try:
+                data = r.json()
+                r.close()
+                return data.get("open", False)
+            except:
+                pass
+        return False
 
-        if time.ticks_diff(time.ticks_ms(), t0) > max_time * 1000:
-            print("BLE timeout")
-            break
+    def pulse_door(self):
+        print("OPENING DOOR")
+        # Pulse Output Pin (simulating button press on door controller via optocoupler)
+        # Usually active low or high depending on wiring.
+        # Assuming Optocoupler needs HIGH to activate, or LOW.
+        # Let's assume Active High for now (Pin=1 -> Opto ON -> Door Input Closed).
+        self.pin_door.on()
+        self.hal.sleep(config.DOOR_PULSE_S)
+        self.pin_door.off()
 
-        led_update()
-        time.sleep(0.5)
+    def run(self):
+        print(f"Booting Firmware {FW_VERSION}")
 
+        # 1. Boot Checks
+        if not self.load_wifi_creds():
+            print("No Wi-Fi credentials found.")
+            self.start_ble_provisioning()
+        else:
+            if self.connect_wifi():
+                self.led_mode = 1
+                # Check OTA
+                if self.ota.check_for_updates():
+                    self.ota.update_firmware()
+            else:
+                print("Could not connect to Wi-Fi.")
+                self.start_ble_provisioning()
 
-def send_ring_event(api_key):
-    url = "https://picobell.no/doorbell/ring"
+        # 2. Main Loop
+        print("Entering Main Loop")
+        while True:
+            # LED Animation
+            self.led_update()
 
-    headers = {
-        "Authorization": "Apartment " + api_key,
-        "Content-Type": "application/json",
-        "X-FW-Version": FW_VERSION,
-    }
+            # Button: Long press for reboot/BLE
+            if self.pin_btn.value() == 0:
+                # Basic debounce/hold check
+                t_press = self.hal.get_time_ms()
+                while self.pin_btn.value() == 0:
+                    self.hal.sleep_ms(100)
+                    if self.hal.time_diff(t_press) > 5000: # 5 sec hold
+                         print("Button Hold -> RESET")
+                         self.hal.reset_device()
 
-    payload = {}
+            # Ring Pin: Input (normally HIGH, LOW when pressed/active if pullup)
+            # Optocoupler input: If opto closes to GND, then LOW.
+            if self.pin_ring.value() == 0:
+                # Debounce
+                self.hal.sleep_ms(50)
+                if self.pin_ring.value() == 0:
+                    print("RING Detected")
+                    if self.led_mode == 1: # Only if wifi connected
+                         self.send_ring_event()
+                         self.ring_ts = self.hal.get_time_ms() # Start checking window
+                         self.status_check_ts = self.hal.get_time_ms()
 
-    try:
-        print("POST:", url)
-        r = urequests.post(url, headers=headers, json=payload)
-        print("POST status:", r.status_code)
-        r.close()
-    except Exception as e:
-        print("POST failed:", e)
+                    # Wait for release to avoid multiple triggers
+                    while self.pin_ring.value() == 0:
+                        self.hal.sleep_ms(100)
 
-def get_device_api_key():
-    # Attempt load from wifi.json (add later in provisioning)
-    try:
-        with open(WIFI_FILE) as f:
-            data = ujson.load(f)
-            if "device_api_key" in data:
-                return data["device_api_key"]
-    except:
-        pass
+            # Check for open command if within window
+            if self.ring_ts > 0:
+                # Window: 5 mins
+                if self.hal.time_diff(self.ring_ts) > config.STATUS_CHECK_DURATION_S * 1000:
+                    self.ring_ts = 0 # Window expired
 
-    # fallback using MAC
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)
-    mac = wlan.config("mac")
-    return mac.hex()
+                else:
+                    # Check every 10s
+                    if self.hal.time_diff(self.status_check_ts) > config.STATUS_CHECK_INTERVAL_S * 1000:
+                        self.status_check_ts = self.hal.get_time_ms()
+                        print("Checking door status...")
+                        if self.check_open_status():
+                            self.pulse_door()
+                            self.ring_ts = 0 # Stop checking after open
 
-def check_open_status(api_key):
-    url = "https://picobell.no/doorbell/status"
-
-    headers = {
-        "Authorization": "Apartment " + api_key,
-        "Content-Type": "application/json",
-        "X-FW-Version": FW_VERSION,
-    }
-
-    try:
-        r = urequests.post(url, headers=headers, json={})
-        if r.status_code == 200:
-            data = r.json()
-            return data.get("open", False)
-
-        r.close()
-    except Exception as e:
-        print("Status check failed:", e)
-
-    return False
-
-
-def pulse_door(pin, duration=0.3):
-    pin.init(machine.Pin.OUT)
-    pin.value(0)
-    time.sleep(duration)
-    pin.init(machine.Pin.IN, machine.Pin.PULL_UP)
-
-
-# ------------------------
-# Boot logic
-# ------------------------
-print("Booting...")
-
-device_api_key = get_device_api_key()
-
-if not has_wifi():
-    print("wifi.json missing → BLE")
-    led_mode = LED_MODE_BLE
-    start_ble()
-else:
-    cred = load_wifi()
-    ok = connect_wifi(cred["ssid"], cred["pwd"], 20)
-    if ok:
-        led_mode = LED_MODE_WIFI
-    else:
-        print("Wi-Fi fail → BLE")
-        led_mode = LED_MODE_BLE
-        start_ble()
+            self.hal.sleep_ms(50)
 
 
-
-# ------------------------
-# Main run-loop
-# ------------------------
-print("Run loop...")
-
-ring_ts = 0
-status_counter = 0
-
-while True:
-    # Long press = reboot
-    if long_press(btn, 10000):
-        print("Long-press → reboot")
-        time.sleep(0.5)
-        machine.reset()
-
-    # Short press = doorbell "ring"
-    if short_press(ring, 5000):
-        print("RING detected!")
-        send_ring_event(device_api_key)
-        ring_ts = time.time()
-        status_counter = 0
-        time.sleep(10)  # dont send multiple rings in a row
-
-    # Check open-status for 5 minutes after ring
-    if ring_ts and time.time() - ring_ts < 300:
-        status_counter += 1
-
-        if status_counter >= 60:
-            status_counter = 0
-            print("Checking open status...")
-            if check_open_status(device_api_key):
-                print("Åpner døren")
-                pulse_door(ring)
-                ring_ts = 0  # stop further checks
-
-    led_update()
-    time.sleep(0.05)
+if __name__ == "__main__":
+    hw = hal.HardwareAbstractionLayer()
+    app = DoorbellApp(hw)
+    app.run()
