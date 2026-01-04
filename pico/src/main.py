@@ -35,8 +35,11 @@ class DoorbellApp:
         self.ring_ts = 0
         self.status_check_ts = 0
 
-        self.api_key = None
-        self.wifi_creds = None
+        self.api_key = config.API_KEY
+        self.wifi_creds = {
+            "ssid": config.WIFI_SSID,
+            "pwd": config.WIFI_PASSWORD,
+        }
 
     def led_update(self):
         now = self.hal.get_time_ms()
@@ -55,15 +58,6 @@ class DoorbellApp:
                 self.pin_led.value(not self.pin_led.value())
                 self.led_last_toggle = now
 
-    def load_wifi_creds(self):
-        data = self.hal.load_json(config.FILE_WIFI)
-        if data and "ssid" in data and "pwd" in data:
-            self.wifi_creds = data
-            if "device_api_key" in data:
-                self.api_key = data["device_api_key"]
-            return True
-        return False
-
     def get_api_key(self):
         if self.api_key:
             return self.api_key
@@ -71,7 +65,7 @@ class DoorbellApp:
         return self.hal.get_mac_address()
 
     def connect_wifi(self):
-        if not self.wifi_creds:
+        if not self.api_key:
             return False
 
         print("Connecting to Wi-Fi...")
@@ -108,25 +102,13 @@ class DoorbellApp:
 
     def send_ring_event(self):
         url = config.URL_RING
-        key = self.get_api_key()
-        headers = {
-            "Authorization": "Apartment " + key,
-            "Content-Type": "application/json",
-            "X-FW-Version": FW_VERSION,
-        }
+
         print("Sending RING event...")
-        self.hal.http_post(url, headers, {})
+        self.hal.http_post(url, {}, {})
 
     def check_open_status(self):
         url = config.URL_STATUS
-        key = self.get_api_key()
-        headers = {
-            "Authorization": "Apartment " + key,
-            "Content-Type": "application/json",
-            "X-FW-Version": FW_VERSION,
-        }
-
-        r = self.hal.http_post(url, headers, {})
+        r = self.hal.http_post(url, {}, {})
         if r:
             try:
                 data = r.json()
@@ -150,7 +132,7 @@ class DoorbellApp:
         print(f"Booting Firmware {FW_VERSION}")
 
         # 1. Boot Checks
-        if not self.load_wifi_creds():
+        if not self.wifi_creds:
             print("No Wi-Fi credentials found.")
             self.start_ble_provisioning()
         else:
