@@ -8,6 +8,7 @@ use App\Controllers\DeviceController;
 use App\Controllers\ApartmentController;
 use App\Controllers\AdminController;
 use App\Controllers\DoorbellController;
+use App\Controllers\PicoController;
 
 return function (App $app, Medoo $db) {
     $auth = new AuthController($db);
@@ -16,6 +17,7 @@ return function (App $app, Medoo $db) {
     $apartments = new ApartmentController($db);
     $admin = new AdminController($db);
     $doorbell = new DoorbellController($db);
+    $pico = new PicoController($db);
 
     // === AUTH ===
     $app->group('/auth', function ($group) use ($auth) {
@@ -61,5 +63,13 @@ return function (App $app, Medoo $db) {
     })->add(function ($req, $handler) use ($auth) {
             return $auth->apartmentAuthMiddleware($req, $handler);
     });
+
+    // === PICO ===
+    $app->group('/pico', function ($group) use ($pico) {
+        $group->get('/fw_version', [$pico, 'fwVersion']);
+    })->add(function ($req, $handler) use ($auth) {
+            return $auth->apartmentAuthMiddleware($req, $handler);
+    });
+
 
 };
