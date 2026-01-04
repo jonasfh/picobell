@@ -173,9 +173,18 @@ class MockResponse:
     def __init__(self, status_code, json_content):
         self.status_code = status_code
         self._json = json_content
+        # For simplicity in mocks, assume json_content can be dumped if text is accessed
+        # or we might want to allow passing raw text in init.
+        # But for now, let's just make it robust enough for simple mocks.
+        import json
+        self._text = json.dumps(json_content)
 
     def json(self):
         return self._json
+
+    @property
+    def text(self):
+        return self._text
 
     def close(self):
         pass
