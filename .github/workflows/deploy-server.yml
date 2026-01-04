@@ -7,11 +7,13 @@ on:
       - main
     paths:
       - server/**
+      - pico/**
   pull_request:
     branches:
       - main
     paths:
       - server/**
+      - pico/**
 
 
 env:
@@ -118,7 +120,10 @@ jobs:
             composer install --no-dev --optimize-autoloader
             php vendor/robmorgan/phinx/bin/phinx migrate -n -c config/phinx.php -e $ENV
             cd ~
-            rsync -av --delete  $ENV/server/ webroots/$WEB_ROOT/
+             mkdir -p server/firmware/latest
+             cp pico/src/*.py server/firmware/latest/
+             rsync -av --delete  $ENV/server/ webroots/$WEB_ROOT/
+
           ENDSSH
           )
           echo "$COMMANDS"

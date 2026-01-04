@@ -15,6 +15,7 @@ BASE_URL = "https://picobell.no"
 URL_RING = BASE_URL + "/doorbell/ring"
 URL_STATUS = BASE_URL + "/doorbell/status"
 URL_OTA_VERSION = BASE_URL + "/pico/fw_version"
+URL_OTA_FILES = BASE_URL + "/pico/list_py_files"
 
 # Timing
 RING_DEBOUNCE_MS = 300

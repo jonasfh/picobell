@@ -67,6 +67,8 @@ return function (App $app, Medoo $db) {
     // === PICO ===
     $app->group('/pico', function ($group) use ($pico) {
         $group->get('/fw_version', [$pico, 'fwVersion']);
+        $group->get('/list_py_files', [$pico, 'listFiles']);
+        $group->get('/get_file', [$pico, 'getFile']);
     })->add(function ($req, $handler) use ($auth) {
             return $auth->apartmentAuthMiddleware($req, $handler);
     });
