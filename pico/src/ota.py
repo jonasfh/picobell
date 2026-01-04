@@ -34,8 +34,22 @@ class OTAUpdater:
             # Better to assume user manages versioning strictly increasing.
             if latest_version != self.current_version:
                 self.new_version = latest_version
-                self.files_to_update = data.get("files", [])
-                return True
+
+                # Fetch file list from separate endpoint
+                print(f"[OTA] Fetching file list for version {latest_version}...")
+                response_files = self.hal.http_get(config.URL_OTA_FILES) # Need to add this to config
+                if response_files:
+                     try:
+                         self.files_to_update = response_files.json()
+                         response_files.close()
+                         return True
+                     except Exception as e:
+                         print(f"[OTA] Error parsing file list: {e}")
+                         response_files.close()
+                else:
+                    print("[OTA] Failed to fetch file list")
+
+                return False
 
         except Exception as e:
             print(f"[OTA] Error parsing version info: {e}")
@@ -57,6 +71,10 @@ class OTAUpdater:
 
             if not filename or not url:
                 continue
+
+            # Handle relative URLs (default behavior now)
+            if not url.startswith("http"):
+                 url = config.BASE_URL + url
 
             print(f"[OTA] Downloading {filename}...")
             if not self._download_and_save(url, filename):
