@@ -90,9 +90,9 @@ class OTAUpdater:
 
             with open(filename, "w") as f:
                 f.write(content)
-
-            response.close()
             return True
         except Exception as e:
             print(f"[OTA] Write error: {e}")
             return False
+        finally:
+            response.close()
