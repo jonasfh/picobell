@@ -31,8 +31,16 @@ except ImportError:
 # Load config from flash/wifi.json
 def load_wifi_creds(file_wifi):
     data = None
-    with open(file_wifi, 'r') as f:
-        data = json.load(f)
+    try:
+        with open(file_wifi, 'r') as f:
+            data = json.load(f)
+    except Exception:
+        # Fallback for testing on host
+        try:
+             with open("wifi.json", 'r') as f:
+                data = json.load(f)
+        except:
+            pass
 
     if data and "ssid" in data and "pwd" in data and "device_api_key" in data:
         return (data["pwd"], data["device_api_key"], data["ssid"])
