@@ -76,6 +76,7 @@ Wraps all interaction with `machine`, `network`, and `urequests`.
 Handles Over-The-Air firmware updates.
 * Checks `https://picobell.no/firmware/version.json`.
 * Downloads and overwrites `.py` files if version differs.
+* See **[OTA Walkthrough](OTA_WALKTHROUGH.md)** for testing instructions.
 
 ### `src/ble_provision.py`
 Standard BLE GATT server for receiving Wi-Fi credentials.
