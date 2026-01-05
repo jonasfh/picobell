@@ -119,10 +119,11 @@ jobs:
             cd server
             composer install --no-dev --optimize-autoloader
             php vendor/robmorgan/phinx/bin/phinx migrate -n -c config/phinx.php -e $ENV
+            cd -
+            mkdir -p server/firmware/latest
+            cp pico/src/*.py server/firmware/latest/
             cd ~
-             mkdir -p server/firmware/latest
-             cp pico/src/*.py server/firmware/latest/
-             rsync -av --delete  $ENV/server/ webroots/$WEB_ROOT/
+            rsync -av --delete  $ENV/server/ webroots/$WEB_ROOT/
 
           ENDSSH
           )
