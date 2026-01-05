@@ -6,14 +6,16 @@ Options -Indexes
 </FilesMatch>
 
 <IfModule mod_rewrite.c>
-  # Redirect to the public folder
   RewriteEngine On
   # RewriteBase /
+
+  # return 403 for config and firmware folder access
+  RewriteRule ^config/ - [F,L]
+  RewriteRule ^firmware/ - [F,L]
+
+  # Redirect to the public folder
   RewriteRule ^$ public/ [L]
   RewriteRule (.*) public/$1 [L]
-
-  # return 403 for config folder access
-  RewriteRule ^config/ - [F,L]
 
   # Redirect to HTTPS
   # RewriteEngine On
