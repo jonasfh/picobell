@@ -22,6 +22,7 @@ mpremote repl
 * **[Development & Testing](docs/DEVELOPMENT.md)**: Setup, mpremote usage, running tests.
 * **[Architecture](docs/ARCHITECTURE.md)**: Pinout, modules, HAL, OTA.
 * **[BLE Provisioning](docs/BLE.md)**: How to set up Wi-Fi.
+* **[OTA Walkthrough](docs/OTA_WALKTHROUGH.md)**: Guide for testing firmware upgrades.
 
 ## 📂 Source Structure
 * `src/`: Source code (`main.py`, `hal.py`, etc).
