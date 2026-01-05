@@ -50,9 +50,38 @@ Once the local test passes, you can test on the Pico.
 - **Flash Current Code**: Ensure the Pico has the verified `ota.py`, `hal.py`, and `config.py`.
 - **Configuration**:
   - Update `pico/src/config.py` (or `wifi.json`) with your Wi-Fi credentials and the **API KEY** (`1234abcd` or your valid key).
-  - Update `pico/src/config.py` to point `BASE_URL` to your computer's IP address (e.g., `http://192.168.1.100:8080`), **NOT** localhost. The Pico cannot see `localhost`.
+  - **Set BASE_URL**: The Pico cannot access `localhost`. You must expose your local server.
 
-### 2. Triggering Update
+### 2. Exposing Local Server
+
+You need to make your local endpoint (`http://localhost:8080`) accessible to the Pico.
+
+#### Option A: Ngrok (Recommended)
+This requires no network configuration.
+1.  **Install ngrok**: Follow instructions at [ngrok.com](https://ngrok.com).
+2.  **Start Tunnel**: Run `ngrok http 8080` in your terminal.
+3.  **Copy URL**: Copy the forwarding URL (e.g., `https://1234-56-78.ngrok.io`).
+4.  **Update `wifi.json`**:
+    Update your `wifi.json` to include the `base_url` field:
+    ```json
+    {
+      "ssid": "YourWiFi",
+      "pwd": "YourPassword",
+      "device_api_key": "1234abcd",
+      "base_url": "https://1234-56-78.ngrok.io"
+    }
+    ```
+5. **Copy `wifi.json` to Pico**:
+    ```bash
+    mpremote cp wifi.json :flash/
+    ```
+
+#### Option B: Local Network IP
+1.  Find your computer's IP address (e.g., `192.168.1.100`).
+2.  Ensure your firewall allows incoming connections on port 8080.
+3.  Set `"base_url": "http://192.168.1.100:8080"` in `wifi.json`.
+
+### 3. Triggering Update
 
 You can manually trigger the update via REPL to observe the process.
 
@@ -60,27 +89,27 @@ You can manually trigger the update via REPL to observe the process.
 2.  **Open REPL** (e.g., in Thonny or via `mpremote repl`).
 3.  **Run the following commands**:
 
-    ```python
-    import hal
-    import config
-    import ota
+```python
+import hal
+import config
+import ota
 
-    # Initialize HAL and Updater
-    h = hal.HardwareAbstractionLayer()
+# Initialize HAL and Updater
+h = hal.HardwareAbstractionLayer()
 
-    # Connect WiFi explicitly if not done by main.py
-    # h.connect_wifi(config.WIFI_SSID, config.WIFI_PASSWORD)
+# Connect WiFi explicitly if not done by main.py
+h.connect_wifi(config.WIFI_SSID, config.WIFI_PASSWORD)
 
-    # Initialize with an older version to force update
-    updater = ota.OTAUpdater(h, "0.0.0")
+# Initialize with an older version to force update
+updater = ota.OTAUpdater(h, "0.0.0")
 
-    # Check for updates
-    if updater.check_for_updates():
-        print("Update found! Starting download...")
-        updater.update_firmware()
-    else:
-        print("No update found.")
-    ```
+# Check for updates
+if updater.check_for_updates():
+    print("Update found! Starting download...")
+    updater.update_firmware()
+else:
+    print("No update found.")
+```
 
 ### 3. Verification
 
