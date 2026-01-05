@@ -35,6 +35,16 @@ RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
 RUN curl -sS https://getcomposer.org/installer | php -- \
     --install-dir=/usr/local/bin --filename=composer
 
+
+# Install NGROK CLI
+RUN curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
+    | tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null \
+    && echo "deb https://ngrok-agent.s3.amazonaws.com bookworm main" \
+    | tee /etc/apt/sources.list.d/ngrok.list \
+    && apt update \
+    && apt install -y ngrok && \
+    rm -rf /var/lib/apt/lists/*
+
 # Etter at composer er installert
 COPY . /workspace/
 RUN composer update --no-interaction || true
