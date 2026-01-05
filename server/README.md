@@ -43,6 +43,10 @@ flowchart LR
     B3["/profile/apartments"]
     B31["GET /profile/apartments"]
     B32["POST /profile/apartments"]
+    B4["GET /pico/fw_version"]
+    B5["GET /pico/list_py_files"]
+    B6["GET /pico/get_file"]
+
 
     C["/admin"]
     C1["..."]
