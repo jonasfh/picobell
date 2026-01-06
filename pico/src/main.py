@@ -82,7 +82,7 @@ class DoorbellApp:
             return
 
         self.led_mode = 2
-        prov = BLEProvision()
+        prov = BLEProvision(self.hal)
         prov.start()
 
         t0 = self.hal.get_time_ms()

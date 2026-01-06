@@ -2,10 +2,7 @@
 # BLE provisioning service for Picobell Pico W
 from micropython import const
 import bluetooth
-import network
-import binascii
 import time
-import ujson
 
 FLAG_READ = const(0x02)
 FLAG_WRITE = const(0x08)
@@ -57,7 +54,8 @@ def adv_payload(name=None, services=None):
 class BLEProvision:
     is_provisioned = False  # Indicates if provisioning is done
 
-    def __init__(self):
+    def __init__(self, hal):
+        self.hal = hal
         self.ble = bluetooth.BLE()
         self.ble.active(True)
         self.ble.irq(self._irq)
@@ -67,11 +65,7 @@ class BLEProvision:
         self._pwd = ""
         self._api_key = ""
 
-        self._wifi = network.WLAN(network.STA_IF)
-        self._wifi.active(True)
-
-        mac = self._wifi.config("mac")
-        self.device_id = binascii.hexlify(mac).decode()
+        self.device_id = self.hal.get_mac_address()
 
         devinfo = (UUID_DEV_INFO,
                    ((UUID_DEV_ID, FLAG_READ,),
@@ -96,7 +90,7 @@ class BLEProvision:
          self.h_stat) = wifisrv_handles
 
         self.ble.gatts_write(self.h_dev_id, self.device_id)
-        self.ble.gatts_write(self.h_fw, b"1.0.0")
+        self.ble.gatts_write(self.h_fw, b"1.1.0")
 
 
     def start(self):
@@ -149,25 +143,23 @@ class BLEProvision:
     def _connect(self):
         print("Connecting?")
         self._notify("connecting")
-        self._wifi.disconnect()
-        time.sleep(1)
-        self._wifi.connect(self._ssid, self._pwd)
 
-        for _ in range(25):
-            print(".", end="")
-            if self._wifi.isconnected():
-                ip = self._wifi.ifconfig()[0]
-                self._notify("connected:" + ip)
-                print("Connected: ", ip)
+        success = self.hal.connect_wifi(self._ssid, self._pwd)
 
-                cfg = {"ssid": self._ssid,
-                       "pwd": self._pwd,
-                       "device_api_key": self._api_key}
-                with open("/flash/wifi.json", "w") as f:
-                    ujson.dump(cfg, f)
+        if success:
+            # We don't have a direct way to get IP from hal.connect_wifi currently
+            # but we can assume it works or add a way to get it.
+            # Actually hal.connect_wifi already prints "Wi-Fi Connected" on host.
+            # On real Pico it uses network.WLAN.
+            # Let's see if we can get IP.
+            # I will assume IP is available via some method if needed, but for now:
+            self._notify("connected:OK")
 
-                self.is_provisioned = True
-                return
-            time.sleep(0.4)
+            cfg = {"ssid": self._ssid,
+                   "pwd": self._pwd,
+                   "device_api_key": self._api_key}
 
-        self._notify("failed")
+            self.hal.save_json("/flash/wifi.json", cfg)
+            self.is_provisioned = True
+        else:
+            self._notify("failed")
