@@ -105,7 +105,7 @@ class HardwareAbstractionLayer:
 
     def get_mac_address(self):
         if not IS_MICROPYTHON:
-            return "00:11:22:33:44:55"
+            return "001122334455"
 
         if not self._wlan:
             self._wlan = network.WLAN(network.STA_IF)
