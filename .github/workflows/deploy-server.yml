@@ -7,13 +7,11 @@ on:
       - main
     paths:
       - server/**
-      - pico/**
   pull_request:
     branches:
       - main
     paths:
       - server/**
-      - pico/**
 
 
 env:
