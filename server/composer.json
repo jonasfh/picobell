@@ -53,6 +53,10 @@
     },
     "scripts": {
         "start": "php -S 0.0.0.0:8080 -t public",
-        "test": "phpunit"
+        "test": "phpunit",
+        "dbinit": [
+            "@php vendor/bin/phinx migrate -c config/phinx.php",
+            "@php vendor/bin/phinx seed:run -c config/phinx.php"
+        ]
     }
 }

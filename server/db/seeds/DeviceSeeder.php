@@ -23,6 +23,8 @@ class DeviceSeeder extends AbstractSeed
             ],
         ];
 
+        $prefix = $this->getAdapter()->getOption('table_prefix');
+        $this->execute("DELETE FROM {$prefix}devices WHERE user_id = 1 AND name = 'Emulator Device'");
         $this->table('devices')->insert($devices)->saveData();
     }
     public function getDependencies(): array
