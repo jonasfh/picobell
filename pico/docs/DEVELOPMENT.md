@@ -74,3 +74,22 @@ If you need to reinstall MicroPython:
 1. Download newest UF2 from [micropython.org](https://micropython.org/download/rp2-picow/).
 2. Hold **BOOTSEL** button while plugging in USB.
 3. Copy `.uf2` file to the `RPI-RP2` drive.
+
+---
+
+## 4. BLE Provisioning Verification Plan
+
+1.  **Boot without `wifi.json`**:
+    - Delete/rename `/flash/wifi.json` on the Pico.
+    - Power on.
+    - Observe LED indicating BLE mode (fast toggle).
+    - Wait 10 minutes or use a phone to provision.
+2.  **Trigger BLE via button**:
+    - With Wi-Fi connected, hold the "Open door" button (**GP15**) for **10 seconds** (or connect GP15 to GND).
+    - Observe it enters BLE mode.
+3.  **Manual Open**:
+    - Press the button briefly.
+    - Observe "OPENING DOOR" logs and pin 11 pulse.
+4.  **Timeout Check**:
+    - Enter BLE mode and wait 10 minutes.
+    - Observe it returns to normal operation.

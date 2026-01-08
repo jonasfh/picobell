@@ -75,13 +75,18 @@ class DoorbellApp:
         print("Wi-Fi Connection Failed")
         return False
 
-    def start_ble_provisioning(self):
-        print("Starting BLE Provisioning...")
+    def start_ble_provisioning(self, timeout_ms=600000):
+        """
+        Starts BLE provisioning mode.
+        Default timeout is 10 minutes (600000 ms).
+        """
+        print(f"Starting BLE Provisioning (Timeout: {timeout_ms/600000} mins)...")
         if not BLEProvision:
             print("BLE module not available")
             return
 
         self.led_mode = 2
+        # Initialize BLEProvision with self.hal
         prov = BLEProvision(self.hal)
         prov.start()
 
@@ -89,12 +94,14 @@ class DoorbellApp:
         while True:
             if prov.is_provisioned:
                 print("Provisioned! Rebooting...")
-                self.hal.sleep(0.5)
+                self.hal.sleep(1.0) # Give time for BLE to finish notification
                 self.hal.reset_device()
 
-            # Timeout 5 mins
-            if self.hal.time_diff(t0) > 300000:
-                print("BLE Timeout")
+            # Check timeout
+            if self.hal.time_diff(t0) > timeout_ms:
+                print("BLE Provisioning Timeout. Returning to normal operation.")
+                self.led_mode = 0 # Turn off LED animation
+                self.pin_led.off()
                 break
 
             self.led_update()
@@ -132,7 +139,7 @@ class DoorbellApp:
         print(f"Booting Firmware {FW_VERSION}")
 
         # 1. Boot Checks
-        if not self.wifi_creds:
+        if not self.wifi_creds or not self.wifi_creds.get("ssid"):
             print("No Wi-Fi credentials found.")
             self.start_ble_provisioning()
         else:
@@ -142,7 +149,7 @@ class DoorbellApp:
                 if self.ota.check_for_updates():
                     self.ota.update_firmware()
             else:
-                print("Could not connect to Wi-Fi.")
+                print("Could not connect to Wi-Fi. Entering BLE fallback.")
                 self.start_ble_provisioning()
 
         # 2. Main Loop
@@ -151,15 +158,30 @@ class DoorbellApp:
             # LED Animation
             self.led_update()
 
-            # Button: Long press for reboot/BLE
+            # Button handling (Manual Door Open vs BLE Setup)
             if self.pin_btn.value() == 0:
-                # Basic debounce/hold check
+                # Button pressed
                 t_press = self.hal.get_time_ms()
+                is_long_press = False
+
+                # Check for hold
                 while self.pin_btn.value() == 0:
                     self.hal.sleep_ms(100)
-                    if self.hal.time_diff(t_press) > 5000: # 5 sec hold
-                         print("Button Hold -> RESET")
-                         self.hal.reset_device()
+                    if self.hal.time_diff(t_press) > 10000: # 10 sec hold
+                         is_long_press = True
+                         print("Button Hold (10s) -> BLE Provisioning")
+                         self.start_ble_provisioning()
+                         break
+
+                if not is_long_press:
+                    # Short press (<10s) -> Open Door
+                    # Debounce check
+                    if self.hal.time_diff(t_press) > 50:
+                        self.pulse_door()
+
+                # Wait for release to avoid re-triggering
+                while self.pin_btn.value() == 0:
+                    self.hal.sleep_ms(100)
 
             # Ring Pin: Input (normally HIGH, LOW when pressed/active if pullup)
             # Optocoupler input: If opto closes to GND, then LOW.

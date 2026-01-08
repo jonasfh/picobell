@@ -3,7 +3,7 @@
 ## Overview
 Picobell-Pico-W nodes use BLE (Bluetooth Low Energy) for initial setup. This
 allows users to provision Wi-Fi credentials and API keys without a physical
-serial connection.
+serial connection. Setup is triggered automatically on first boot or manually via a 10-second button hold.
 
 ---
 
@@ -24,6 +24,20 @@ serial connection.
 | **API Key** | `...90b5` | Write | Device API Key for server authentication |
 | **Command** | `...90b3` | Write | Trigger actions (e.g., `connect`) |
 | **Status** | `...90b4` | Notify | Real-time feedback (`connecting`, `connected:<ip>`, `failed`) |
+
+---
+
+---
+
+## Entering Provisioning Mode
+
+The device enters BLE Provisioning mode in the following scenarios:
+
+1.  **First Boot**: If `/flash/wifi.json` is missing or contains no SSID.
+2.  **Connection Failure**: If saved credentials fail to connect on boot.
+3.  **Manual Trigger**: Holding the "Open door" button (**GP15**) for **10 seconds** (or connecting GP15 to GND for 10 seconds).
+
+**Timeout**: Provisionsing mode will automatically stop after **10 minutes** if no setup is completed, and the device will resume normal operation (allowing manual door opening).
 
 ---
 
