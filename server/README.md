@@ -9,9 +9,36 @@ web-rammeverk, [Medoo](https://medoo.in/) som database-abstraksjonslag, og
 Se egen [README.md](config/README.md) for detaljer om konfigurasjon av
 applikasjonen.
 
-## Database
+## Komme i gang (Setup)
 
-Databasen er SQLite for utvikling, og lagres som default i `/tmp/dev.sqlite3`.
+### 1. Installer avhengigheter
+Sørg for at du har [Composer](https://getcomposer.org/) installert, og kjør:
+```bash
+composer install
+```
+
+### 2. Konfigurer miljøet (.env)
+Kopier standard-miljøfilen og sett opp database-detaljer:
+```bash
+cp config/default.env config/.env
+```
+Rediger `config/.env` og sett verdiene for `DB_TYPE` (f.eks. `sqlite`) og `DB_DATABASE` (f.eks. `/tmp/picobell.sqlite3`).
+
+### 3. Initialiser databasen
+Dette vil kjøre alle migrasjoner og legge inn nødvendige frø-data (seeds). Kommandoen er idempotent og kan kjøres flere ganger:
+```bash
+composer dbinit
+```
+Databasen er SQLite for utvikling, og lagres som default i `/tmp/picobell.sqlite3`.
+
+### 4. Start utviklingsserveren
+Du kan starte den innebygde PHP-serveren med:
+```bash
+composer start
+```
+Serveren vil da være tilgjengelig på `http://localhost:8080`.
+
+## Database
 
 ## Få test token fra google Google OAuth Playground
 

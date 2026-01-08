@@ -17,6 +17,8 @@ final class UsersSeeder extends AbstractSeed
         ];
 
         $users = $this->table('users');
+        $prefix = $this->getAdapter()->getOption('table_prefix');
+        $this->execute("DELETE FROM {$prefix}users WHERE email = 'testuser@example.com'");
         $users->insert($data)->save();
     }
 

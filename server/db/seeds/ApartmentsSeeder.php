@@ -17,6 +17,8 @@ final class ApartmentsSeeder extends AbstractSeed
         ];
 
         $apartments = $this->table('apartments');
+        $prefix = $this->getAdapter()->getOption('table_prefix');
+        $this->execute("DELETE FROM {$prefix}apartments WHERE pico_serial = 'PICO123456'");
         $apartments->insert($data)->save();
     }
 

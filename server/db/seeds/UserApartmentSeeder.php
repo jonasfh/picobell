@@ -19,6 +19,8 @@ final class UserApartmentSeeder extends AbstractSeed
         ];
 
         $userApartment = $this->table('user_apartment');
+        $prefix = $this->getAdapter()->getOption('table_prefix');
+        $this->execute("DELETE FROM {$prefix}user_apartment WHERE user_id = 1 AND apartment_id = 1");
         $userApartment->insert($data)->save();
     }
 
@@ -26,7 +28,7 @@ final class UserApartmentSeeder extends AbstractSeed
     {
         return [
             'UsersSeeder',
-            'ApartmentSeeder',
+            'ApartmentsSeeder',
         ];
     }
 
