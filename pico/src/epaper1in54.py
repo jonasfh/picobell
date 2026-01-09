@@ -55,7 +55,7 @@ class EPD:
     def wait_until_idle(self):
         """Busy pin is HIGH when screen is processing."""
         while self.busy.value() == 1:
-            time.sleep(0.05)
+            time.sleep(0.01)
 
     def reset(self):
         """Hardware reset pulse."""
@@ -81,12 +81,9 @@ class EPD:
         self.wait_until_idle()
 
         # Driver output control: Sets mux and scan direction
-        # [0.0.6-note] Hardware flips (GD/TB) often cause mirroring issues.
-        # We use default scan and will handle rotation in software if needed.
         self._command(0x01, bytearray([0xC7, 0x00, 0x00]))
 
-        # Data entry mode:
-        # 0x03 = X-increment, Y-increment
+        # Data entry mode: 0x03 = X-increment, Y-increment
         self._command(0x11, 0x03)
 
         # RAM Ranges
@@ -100,32 +97,58 @@ class EPD:
         self.wait_until_idle()
 
     def display(self, image):
-        """Pushes a full framebuffer to the screen and triggers refresh."""
+        """Pushes a full framebuffer to the screen and triggers a full refresh."""
         if image is None: return
         self.set_ram_address(0, 0)
-        self._command(0x24, image) # Write 'Black' RAM
-
-        self._command(0x22, 0xF7) # Update Control: Load sequence
-        self._command(0x20)       # Master Activation (The actual blink)
-        self.wait_until_idle()
-
-    def clear(self):
-        """Optimized: Writes white (0xFF) to the entire display memory."""
-        self.set_ram_address(0, 0)
-        self._command(0x24)
-
-        # We push one large chunk instead of many tiny bits
-        white_chunk = bytearray([0xFF] * 200) # One row at a time (effectively)
-        self.dc.on()
-        self.cs.off()
-        for _ in range(25 * 200 // 200): # 25 bytes per row * 200 rows
-            self.spi.write(white_chunk)
-        self.cs.on()
+        self._command(0x24, image)
 
         self._command(0x22, 0xF7)
         self._command(0x20)
         self.wait_until_idle()
 
+    def display_partial(self, image):
+        """Triggers a partial refresh (SSD1681 DISPLAY Mode 2)."""
+        if image is None: return
+        self.set_ram_address(0, 0)
+        self._command(0x24, image)
+
+        # 0xFF = DISPLAY Mode 2 (Partial/Fast Update)
+        self._command(0x22, 0xFF)
+        self._command(0x20)
+        self.wait_until_idle()
+
+    def _write_ram_all(self, value):
+        """Helper to fill both RAM banks with a single value."""
+        self.set_ram_address(0, 0)
+        self._command(0x24)
+        chunk = bytearray([value] * 200)
+        self.dc.on()
+        self.cs.off()
+        for _ in range(25 * 200 // 200):
+            self.spi.write(chunk)
+        self.cs.on()
+
+        # Some displays need the second RAM bank (0x26) cleared to avoid red tints
+        self.set_ram_address(0, 0)
+        self._command(0x26)
+        self.dc.on()
+        self.cs.off()
+        for _ in range(25 * 200 // 200):
+            self.spi.write(chunk)
+        self.cs.on()
+
+    def clear(self, fast=False):
+        """Clears display. Set fast=True for partial/no-flicker update."""
+        self._write_ram_all(0xFF) # Fill with White
+
+        if fast:
+            self._command(0x22, 0xFF) # Partial Update Mode
+        else:
+            self._command(0x22, 0xF7) # Full Update Mode
+
+        self._command(0x20)
+        self.wait_until_idle()
+
     def sleep(self):
-        """Enters Deep Sleep mode to save power (0.01uA)."""
+        """Enters Deep Sleep mode to save power."""
         self._command(0x10, 0x01)
