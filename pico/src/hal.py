@@ -86,6 +86,35 @@ class HardwareAbstractionLayer:
         else:
             return MockPin(pin_id, 0)
 
+    # --- SPI Management ---
+    def create_spi(self, spi_id, baudrate, sck_pin, mosi_pin, miso_pin=None):
+        if IS_MICROPYTHON:
+            import machine
+            miso = machine.Pin(miso_pin) if miso_pin is not None else None
+            return machine.SPI(spi_id, baudrate=baudrate, sck=machine.Pin(sck_pin), mosi=machine.Pin(mosi_pin), miso=miso)
+        else:
+            return MockSPI()
+
+    def get_epd(self):
+        """Returns initialized E-Ink display object."""
+        if not hasattr(self, '_epd'):
+            if IS_MICROPYTHON:
+                from epaper1in54 import EPD
+                # Standard Waveshare SPI config
+                spi = self.create_spi(0, baudrate=4000000,
+                                     sck_pin=config.PIN_EPD_CLK,
+                                     mosi_pin=config.PIN_EPD_DIN)
+                cs = self.create_pin_out(config.PIN_EPD_CS)
+                dc = self.create_pin_out(config.PIN_EPD_DC)
+                rst = self.create_pin_out(config.PIN_EPD_RST)
+                busy = self.create_pin_in(config.PIN_EPD_BUSY, pull_up=False)
+
+                self._epd = EPD(spi, cs, dc, rst, busy)
+                self._epd.init()
+            else:
+                self._epd = MockEPD()
+        return self._epd
+
     # --- Network ---
     def connect_wifi(self, ssid, password, timeout_s=20):
         if not IS_MICROPYTHON:
@@ -188,3 +217,25 @@ class MockResponse:
 
     def close(self):
         pass
+
+
+class MockSPI:
+    def init(self, *args, **kwargs):
+        pass
+
+    def write(self, data):
+        pass
+
+
+class MockEPD:
+    def init(self):
+        print("[HAL] Mock EPD initialized")
+
+    def sleep(self):
+        print("[HAL] Mock EPD sleep")
+
+    def display(self, image):
+        print("[HAL] Mock EPD display image")
+
+    def clear(self):
+        print("[HAL] Mock EPD clear")
