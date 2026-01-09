@@ -41,6 +41,23 @@ To test the real BLE stack on the physical hardware, use the following steps.
 - A BLE scanner app on your phone (e.g.,
     [nRF Connect](https://www.nordicsemi.com/Products/Development-tools/nRF-Connect-for-mobile)).
 
+### Mpremote Usage
+
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+cd pico
+# Upload all .py files to the Pico
+mpremote cp src/*.py :
+
+# Remove wifi.json if it exists
+mpremote rm /flash/wifi.json
+
+# Upload test script
+mpremote cp tests/test_ble_hardware.py /flash/test_ble_hardware.py
+```
+
 ### Steps
 1. **Flash Source**: Ensure `pico/src/ble_provision.py` is on the Pico.
 2. **Flash Test Script**: Upload [pico/tests/test_ble_hardware.py](../tests/test_ble_hardware.py) to the Pico.
