@@ -1,9 +1,9 @@
 # hello_world_display.py
 import framebuf
 from hal import HardwareAbstractionLayer
+import time
 
 # Global rotation setting: 0, 90, 180, 270
-# 180 seems to be what you need for your mounting!
 ROTATION = 180
 
 def draw_scaled_text(fb, text, x, y, scale=2):
@@ -24,8 +24,6 @@ def rotate_buffer(buf, width, height, angle):
         return buf
 
     new_buf = bytearray(len(buf))
-    # We use framebuf to access pixels easily, though it's slower than math
-    # but more readable and less 'gibberish'!
     src_fb = framebuf.FrameBuffer(buf, width, height, framebuf.MONO_HLSB)
     dst_fb = framebuf.FrameBuffer(new_buf, width, height, framebuf.MONO_HLSB)
     dst_fb.fill(1) # fill white
@@ -46,8 +44,8 @@ def run():
     hal = HardwareAbstractionLayer()
     epd = hal.get_epd()
 
-    print("Clearing display (Optimized)...")
-    epd.clear()
+    print("Clearing display (Fast/Pretty)...")
+    epd.clear(fast=False)
 
     # 1. Create a "Virtual" buffer to draw on
     width = 200
@@ -69,8 +67,8 @@ def run():
     print(f"Applying {ROTATION} degree software rotation...")
     ready_buf = rotate_buffer(buf, width, height, ROTATION)
 
-    print("Updating display...")
-    epd.display(ready_buf)
+    print("Updating display (Partial/Fast)...")
+    epd.display_partial(ready_buf)
 
     print("Display updated. Going to sleep...")
     epd.sleep()
