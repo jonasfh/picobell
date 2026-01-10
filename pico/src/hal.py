@@ -13,6 +13,7 @@ try:
     import urequests
     import ujson
     import utime
+    import framebuf
     IS_MICROPYTHON = True
 except ImportError:
     # Minimal mocks for host testing context
@@ -20,6 +21,15 @@ except ImportError:
     network = None
     urequests = None
     ujson = None
+
+    # Use our local mock for framebuf
+    import sys
+    import os
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../tools/lib")))
+    try:
+        import framebuf
+    except ImportError:
+        framebuf = None
 
 class HardwareAbstractionLayer:
     def __init__(self):
@@ -274,6 +284,21 @@ class MockEPD:
 
     def display(self, image):
         print("[HAL] Mock EPD display image")
+        if framebuf:
+            fb = framebuf.FrameBuffer(image, 200, 200, framebuf.MONO_HLSB)
+            if hasattr(fb, "show"):
+                fb.show()
+            if hasattr(fb, "to_png"):
+                fb.to_png("preview_full.png")
+
+    def display_partial(self, image):
+        print("[HAL] Mock EPD display partial")
+        if framebuf:
+            fb = framebuf.FrameBuffer(image, 200, 200, framebuf.MONO_HLSB)
+            if hasattr(fb, "show"):
+                fb.show()
+            if hasattr(fb, "to_png"):
+                fb.to_png("preview_partial.png")
 
     def clear(self, fast=False):
         print("[HAL] Mock EPD clear")
