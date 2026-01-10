@@ -128,6 +128,17 @@ class HardwareAbstractionLayer:
         else:
             print(f"[HAL] Mock time set to {unix_timestamp}")
 
+    def set_local_time(self, tm):
+        """Sets the system RTC from a dict with year, month, mday, wday, hour, min, sec."""
+        if IS_MICROPYTHON:
+            import machine
+            # RTC tuple: (year, month, day, weekday, hours, minutes, seconds, subseconds)
+            rtc = machine.RTC()
+            rtc.datetime((tm['year'], tm['month'], tm['mday'], tm['wday'], tm['hour'], tm['min'], tm['sec'], 0))
+            print(f"[HAL] Local time synced: {tm['hour']:02d}:{tm['min']:02d}")
+        else:
+            print(f"[HAL] Mock local time set: {tm}")
+
     def get_uptime_str(self):
         """Returns uptime as 'Xd Yh Zm'."""
         ms = self.get_time_ms()

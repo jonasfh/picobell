@@ -190,19 +190,23 @@ class DoorbellApp:
         if r:
             try:
                 data = r.json()
-                ts = data.get("unix_timestamp")
-                if ts:
-                    self.hal.set_time(ts)
-                    # Format: WED 22:35 (6+ chars, but we keep it concise)
-                    days = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
-                    tm = time.localtime(ts)
-                    self.last_call_str = f"{days[tm[6]]} {tm[3]:02d}:{tm[4]:02d}"
-                    print(f"Server time sync: {self.last_call_str}")
+
+                # Update system clock from structured server time
+                lt = data.get("local_time")
+                if lt:
+                    self.hal.set_local_time(lt)
+
+                # Update display string from server formatting
+                dt = data.get("display_time")
+                if dt:
+                    self.last_call_str = dt
+                    print(f"Server time sync: {dt}")
+
                 r.close()
             except Exception as e:
                 print(f"Error parsing ring response: {e}")
 
-        self.display_update(partial=True)
+        self.display_update()
 
     def check_open_status(self):
         url = config.URL_STATUS
