@@ -59,39 +59,17 @@ class DoorbellApp:
                     if char_fb.pixel(cx, cy) == 0:
                         fb.fill_rect(x + i*8*scale + cx*scale, y + cy*scale, scale, scale, 0)
 
-    def display_update(self, partial=False):
-        """Redraws the status screen and sleeps the display to save battery."""
-        # Force partial=False per user request for full screen refreshes
-        partial = False
-
-        epd = self.hal.get_epd()
-        epd.init() # Wake up / Reset chip
-
-        # 1. Create a "Virtual" buffer to draw on
+    def _get_fb(self):
+        """Creates a framebuffer and returns it along with the buffer."""
         width, height = 200, 200
         buf = bytearray(width * height // 8)
         fb = framebuf.FrameBuffer(buf, width, height, framebuf.MONO_HLSB)
         fb.fill(1) # White
+        return fb, buf
 
-        # Draw Content
-        self.draw_scaled_text(fb, "PICOBELL", 10, 15, scale=3)
-
-        ssid = self.wifi_creds.get("ssid", "NONE")
-        if not self.hal.is_wifi_connected():
-            wifi_str = "OFF"
-        else:
-            wifi_str = ssid[:6] # Keep it centered/concise
-
-        self.draw_scaled_text(fb, f"WIFI {wifi_str}", 10, 60, scale=2)
-        self.draw_scaled_text(fb, f"MODE {self.app_mode}", 10, 85, scale=2)
-        self.draw_scaled_text(fb, f"LAST CALL", 10, 110, scale=2)
-        self.draw_scaled_text(fb, f"{self.last_call_str}", 10, 135, scale=2)
-        self.draw_scaled_text(fb, f"SOFTWARE VERSION {FW_VERSION}", 10, 180, scale=1)
-
-        # Border
-        fb.rect(2, 2, 196, 196, 0)
-
-        # 2. Software Rotation
+    def _rotate_and_display(self, fb, buf, partial=False):
+        """Handles rotation and pushing to the physical display."""
+        width, height = 200, 200
         ready_buf = buf
         if self.rotation == 180:
             ready_buf = bytearray(len(buf))
@@ -102,57 +80,84 @@ class DoorbellApp:
                     pixel = fb.pixel(x, y)
                     dst_fb.pixel(width - 1 - x, height - 1 - y, pixel)
 
-        # 3. Push to display
+        epd = self.hal.get_epd()
+        epd.init()
         if partial:
             epd.display_partial(ready_buf)
         else:
             epd.clear(fast=False)
             epd.display(ready_buf)
-
-        epd.sleep() # Deep sleep saves significant power
+        epd.sleep()
         self._display_last_update = self.hal.get_time_ms()
 
+    def display_update(self, partial=False):
+        """Redraws the screen based on current app_mode."""
+        fb, buf = self._get_fb()
+
+        # Header (Common)
+        self.draw_scaled_text(fb, "PICOBELL", 10, 15, scale=3)
+        fb.rect(2, 2, 196, 196, 0)
+
+        if self.app_mode == "LISTEN":
+            self.draw_listen_screen(fb)
+        elif self.app_mode == "SETUP":
+            self.draw_setup_screen(fb)
+        elif self.app_mode == "OPEN":
+            self.draw_open_screen(fb)
+        elif self.app_mode == "START":
+            self.draw_scaled_text(fb, "BOOTING...", 10, 80, scale=2)
+
+        self.draw_scaled_text(fb, f"v{FW_VERSION}", 160, 185, scale=1)
+        self._rotate_and_display(fb, buf, partial=partial)
+
+    def draw_listen_screen(self, fb):
+        ssid = str(self.wifi_creds.get("ssid") or "NONE")
+        if not self.hal.is_wifi_connected():
+            wifi_str = "OFF"
+        else:
+            wifi_str = ssid[:10]
+
+        self.draw_scaled_text(fb, "READY", 10, 60, scale=3)
+        self.draw_scaled_text(fb, f"WIFI: {wifi_str}", 10, 100, scale=2)
+        self.draw_scaled_text(fb, "LAST CALL:", 10, 130, scale=2)
+        self.draw_scaled_text(fb, self.last_call_str, 10, 155, scale=2)
+
+    def draw_setup_screen(self, fb, status="WAITING"):
+        self.draw_scaled_text(fb, "SETUP MODE", 10, 55, scale=2)
+
+        if status == "SAVED":
+            self.draw_scaled_text(fb, "WIFI SAVED!", 10, 95, scale=2)
+            self.draw_scaled_text(fb, "REBOOTING...", 10, 130, scale=2)
+            return
+
+        # Instructions
+        self.draw_scaled_text(fb, "1. OPEN APP", 10, 85, scale=1)
+        self.draw_scaled_text(fb, "2. SCAN QR", 10, 105, scale=1)
+        self.draw_scaled_text(fb, "3. CONNECT", 10, 125, scale=1)
+
+        # Status Box
+        fb.rect(10, 145, 180, 35, 0)
+        self.draw_scaled_text(fb, status, 20, 155, scale=2)
+
+    def draw_open_screen(self, fb):
+        self.draw_scaled_text(fb, "OPENING", 10, 80, scale=3)
+        self.draw_scaled_text(fb, "DOOR...", 10, 120, scale=3)
+
     def display_ota_progress(self, current, total, is_done=False):
-        """Displays OTA progress on the E-Ink screen as requested."""
-        epd = self.hal.get_epd()
-        epd.init()
-
-        width, height = 200, 200
-        buf = bytearray(width * height // 8)
-        fb = framebuf.FrameBuffer(buf, width, height, framebuf.MONO_HLSB)
-        fb.fill(1) # White
-
+        """Displays OTA progress on the E-Ink screen."""
+        fb, buf = self._get_fb()
         self.draw_scaled_text(fb, "PICOBELL", 10, 15, scale=3)
         self.draw_scaled_text(fb, "UPDATING", 10, 70, scale=3)
         self.draw_scaled_text(fb, "SOFTWARE", 10, 105, scale=3)
 
-        # Progress dots: one dot for each file processed
         dots = "." * current
         self.draw_scaled_text(fb, dots, 10, 145, scale=2)
 
         if is_done:
             self.draw_scaled_text(fb, "REBOOTING", 10, 175, scale=2)
 
-        # Software Rotation
-        ready_buf = buf
-        if self.rotation == 180:
-            ready_buf = bytearray(len(buf))
-            dst_fb = framebuf.FrameBuffer(ready_buf, width, height, framebuf.MONO_HLSB)
-            dst_fb.fill(1)
-            for y in range(height):
-                for x in range(width):
-                    pixel = fb.pixel(x, y)
-                    dst_fb.pixel(width - 1 - x, height - 1 - y, pixel)
-
-        # 1. Use full refresh for the very first step to clear ghosting
-        # 2. Subsequent updates (dots) use partial/fast mode
-        if current == 1:
-            epd.clear(fast=False) # Full refresh flicker
-            epd.display(ready_buf)
-        else:
-            epd.display_partial(ready_buf)
-
-        epd.sleep()
+        # Partial if current > 1
+        self._rotate_and_display(fb, buf, partial=(current > 1))
 
     def led_update(self):
         now = self.hal.get_time_ms()
