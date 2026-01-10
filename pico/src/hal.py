@@ -107,7 +107,7 @@ class HardwareAbstractionLayer:
             return MockSPI()
 
     def get_epd(self):
-        """Returns initialized E-Ink display object."""
+        """Returns initialized E-Ink display object. Detects presence on first call."""
         if not hasattr(self, '_epd'):
             if IS_MICROPYTHON:
                 from epaper1in54 import EPD
@@ -120,8 +120,26 @@ class HardwareAbstractionLayer:
                 rst = self.create_pin_out(config.PIN_EPD_RST)
                 busy = self.create_pin_in(config.PIN_EPD_BUSY, pull_up=False)
 
-                self._epd = EPD(spi, cs, dc, rst, busy)
-                self._epd.init()
+                temp_epd = EPD(spi, cs, dc, rst, busy)
+
+                # Try to initialize. If it times out, we assume it's missing.
+                # We need to catch if it "failed" - currently it just prints.
+                # Let's check the busy pin after init.
+                print("[HAL] Initializing display...")
+                temp_epd.init()
+
+                # If busy is still HIGH after init (and timeout logic in init triggered),
+                # or if SPI is just floating, we might want a better check.
+                # For now, if wait_until_idle in init() timed out, we might still have a "dummy" state.
+                # Let's assume for now that if it didn't crash, we keep it,
+                # but the user wanted it to "just work".
+
+                # A better way: if busy is stuck at 1, fallback to Mock.
+                if busy.value() == 1:
+                    print("[HAL] Display Busy pin stuck HIGH. Assuming display is missing.")
+                    self._epd = MockEPD()
+                else:
+                    self._epd = temp_epd
             else:
                 self._epd = MockEPD()
         return self._epd
@@ -276,6 +294,9 @@ class MockSPI:
 
 
 class MockEPD:
+    def __init__(self):
+        self.is_functional = False
+
     def init(self):
         print("[HAL] Mock EPD initialized")
 

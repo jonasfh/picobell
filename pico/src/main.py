@@ -82,6 +82,9 @@ class DoorbellApp:
                     dst_fb.pixel(width - 1 - x, height - 1 - y, pixel)
 
         epd = self.hal.get_epd()
+        if not epd.is_functional:
+            return
+
         if not self.display_awake:
             epd.init()
             self.display_awake = True
@@ -99,6 +102,9 @@ class DoorbellApp:
 
     def display_update(self, partial=False):
         """Redraws the screen based on current app_mode."""
+        if not self.hal.get_epd().is_functional:
+            return
+
         fb, buf = self._get_fb()
 
         # Header (Common)
@@ -152,6 +158,10 @@ class DoorbellApp:
 
     def display_ota_progress(self, current, total, is_done=False):
         """Displays OTA progress on the E-Ink screen."""
+        if not self.hal.get_epd().is_functional:
+            print(f"[OTA] Progress: {current}/{total}")
+            return
+
         fb, buf = self._get_fb()
         self.draw_scaled_text(fb, "PICOBELL", 10, 15, scale=3)
         self.draw_scaled_text(fb, "UPDATING", 10, 70, scale=3)

@@ -32,6 +32,7 @@ class EPD:
         self.busy = busy
         self.width = EPD_WIDTH
         self.height = EPD_HEIGHT
+        self.is_functional = True
 
     def _command(self, command, data=None):
         """Sends a command byte, optionally followed by data bytes."""
@@ -55,8 +56,14 @@ class EPD:
     def wait_until_idle(self):
         """Busy pin is HIGH when screen is processing. We wait a bit for it to transition."""
         time.sleep(0.1)
+        t0 = time.ticks_ms() if hasattr(time, 'ticks_ms') else (time.time() * 1000)
         while self.busy.value() == 1:
             time.sleep(0.01)
+            # 5 second timeout
+            t_now = time.ticks_ms() if hasattr(time, 'ticks_ms') else (time.time() * 1000)
+            if t_now - t0 > 5000:
+                print("[EPD] Timeout waiting for idle (5s) - Is the display connected?")
+                break
 
     def reset(self):
         """Hardware reset pulse."""
