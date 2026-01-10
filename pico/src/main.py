@@ -14,7 +14,7 @@ except ImportError:
 class DoorbellApp:
     def __init__(self, hardware_layer):
         self.hal = hardware_layer
-        self.ota = OTAUpdater(self.hal, FW_VERSION)
+        self.ota = OTAUpdater(self.hal, FW_VERSION, on_progress=self.display_ota_progress)
 
         # Pins
         self.pin_btn = self.hal.create_pin_in(config.PIN_BTN_BOOT, pull_up=True)
@@ -111,6 +111,48 @@ class DoorbellApp:
 
         epd.sleep() # Deep sleep saves significant power
         self._display_last_update = self.hal.get_time_ms()
+
+    def display_ota_progress(self, current, total, is_done=False):
+        """Displays OTA progress on the E-Ink screen as requested."""
+        epd = self.hal.get_epd()
+        epd.init()
+
+        width, height = 200, 200
+        buf = bytearray(width * height // 8)
+        fb = framebuf.FrameBuffer(buf, width, height, framebuf.MONO_HLSB)
+        fb.fill(1) # White
+
+        self.draw_scaled_text(fb, "PICOBELL", 10, 15, scale=3)
+        self.draw_scaled_text(fb, "UPDATING", 10, 70, scale=3)
+        self.draw_scaled_text(fb, "SOFTWARE", 10, 105, scale=3)
+
+        # Progress dots: one dot for each file processed
+        dots = "." * current
+        self.draw_scaled_text(fb, dots, 10, 145, scale=2)
+
+        if is_done:
+            self.draw_scaled_text(fb, "REBOOTING", 10, 175, scale=2)
+
+        # Software Rotation
+        ready_buf = buf
+        if self.rotation == 180:
+            ready_buf = bytearray(len(buf))
+            dst_fb = framebuf.FrameBuffer(ready_buf, width, height, framebuf.MONO_HLSB)
+            dst_fb.fill(1)
+            for y in range(height):
+                for x in range(width):
+                    pixel = fb.pixel(x, y)
+                    dst_fb.pixel(width - 1 - x, height - 1 - y, pixel)
+
+        # 1. Use full refresh for the very first step to clear ghosting
+        # 2. Subsequent updates (dots) use partial/fast mode
+        if current == 1:
+            epd.clear(fast=False) # Full refresh flicker
+            epd.display(ready_buf)
+        else:
+            epd.display_partial(ready_buf)
+
+        epd.sleep()
 
     def led_update(self):
         now = self.hal.get_time_ms()
@@ -248,7 +290,11 @@ class DoorbellApp:
                 self.display_update()
                 # Check OTA
                 if self.ota.check_for_updates():
-                    self.ota.update_firmware()
+                    if self.ota.update_firmware():
+                        # Wait a few seconds before reboot as requested
+                        print("[OTA] Update successful. Waiting 5s before reboot...")
+                        self.hal.sleep(5.0)
+                        self.hal.reset_device()
             else:
                 print("Could not connect to Wi-Fi. Returning to Setup.")
                 self.app_mode = "SETUP"

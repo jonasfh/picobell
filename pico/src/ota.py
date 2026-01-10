@@ -2,11 +2,12 @@
 import config
 
 class OTAUpdater:
-    def __init__(self, hal, current_version):
+    def __init__(self, hal, current_version, on_progress=None):
         self.hal = hal
         self.current_version = current_version
         self.new_version = None
         self.files_to_update = []
+        self.on_progress = on_progress
 
     def check_for_updates(self):
         """Checks server for a newer version. Returns True if update available."""
@@ -65,7 +66,8 @@ class OTAUpdater:
         print(f"[OTA] Starting update to {self.new_version}")
 
         success = True
-        for file_info in self.files_to_update:
+        total = len(self.files_to_update)
+        for i, file_info in enumerate(self.files_to_update):
             filename = file_info.get("name")
             url = file_info.get("url")
 
@@ -77,6 +79,9 @@ class OTAUpdater:
                  url = config.BASE_URL + url
 
             print(f"[OTA] Downloading {filename}...")
+            if self.on_progress:
+                self.on_progress(i + 1, total, False)
+
             if not self._download_and_save(url, filename):
                 print(f"[OTA] Failed to download {filename}")
                 success = False
@@ -84,6 +89,8 @@ class OTAUpdater:
 
         if success:
             print("[OTA] Update complete. Rebooting...")
+            if self.on_progress:
+                self.on_progress(total, total, True)
             return True
         else:
             print("[OTA] Update failed.")
