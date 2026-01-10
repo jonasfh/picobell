@@ -84,13 +84,19 @@ class BLEProvision:
         print("Device id: ", self.device_id)
         (devinfo_handles, wifisrv_handles) = handles
         (self.h_dev_id, self.h_fw) = devinfo_handles
-
         (self.h_ssid, self.h_pwd,
          self.h_api, self.h_cmd,
          self.h_stat) = wifisrv_handles
 
+        # Increase buffers for long strings (like API Keys or long Passwords)
+        # Default is 20 bytes, which causes truncation.
+        self.ble.gatts_set_buffer(self.h_ssid, 64)
+        self.ble.gatts_set_buffer(self.h_pwd, 64)
+        self.ble.gatts_set_buffer(self.h_api, 256) # API keys can be quite long
+
         self.ble.gatts_write(self.h_dev_id, self.device_id)
-        self.ble.gatts_write(self.h_fw, b"1.1.0")
+        from version import FW_VERSION
+        self.ble.gatts_write(self.h_fw, FW_VERSION)
 
 
     def start(self):
@@ -122,14 +128,20 @@ class BLEProvision:
     def _write(self, h):
         print("Writing to handle:", h)
         if h == self.h_ssid:
-            self._ssid = self.ble.gatts_read(h).decode()
-            print("SSID set to:", self._ssid)
+            raw = self.ble.gatts_read(h)
+            # If the SSID is written multiple times, it's either chunks or a retry.
+            # Standard BLE Write Request starts at offset 0.
+            # But here the app is chunking, so we append.
+            self._ssid += raw.decode()
+            print("SSID appended:", self._ssid)
         elif h == self.h_pwd:
-            self._pwd = self.ble.gatts_read(h).decode()
-            print("Password set to:", self._pwd)
+            raw = self.ble.gatts_read(h)
+            self._pwd += raw.decode()
+            print("Password appended (len={})".format(len(self._pwd)))
         elif h == self.h_api:
-            self._api_key = self.ble.gatts_read(h).decode()
-            print("API Key set to:", self._api_key)
+            raw = self.ble.gatts_read(h)
+            self._api_key += raw.decode()
+            print(f"API Key appended (total len={len(self._api_key)})")
         elif h == self.h_cmd:
             cmd = self.ble.gatts_read(h).decode()
             print("CMD received:", cmd)

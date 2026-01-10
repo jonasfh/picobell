@@ -190,6 +190,7 @@ class DoorbellApp:
         if r:
             try:
                 data = r.json()
+                print(f"Server response: {data}")
 
                 # Update system clock from structured server time
                 lt = data.get("local_time")
@@ -200,7 +201,9 @@ class DoorbellApp:
                 dt = data.get("display_time")
                 if dt:
                     self.last_call_str = dt
-                    print(f"Server time sync: {dt}")
+                    print(f"Time sync successful: {dt}")
+                else:
+                    print("Warning: display_time missing from server response")
 
                 r.close()
             except Exception as e:
