@@ -93,56 +93,50 @@ class EmulatorWindow:
 
     def _run_tk(self):
         if tk is None:
-            print("[Emulator] Tkinter not available.", flush=True)
             return
 
-        print("[Emulator] Initializing Tkinter window...", flush=True)
         try:
             self.root = tk.Tk()
             self.root.title("Picobell EPD Emulator")
-            # Blue background to see the window clearly
-            self.root.configure(bg="#0000FF")
-            self.root.geometry("300x300")
+            self.root.configure(bg="#333333")
+            self.root.geometry("260x260")
 
-            # Use a Label for the message/image
-            self.label = tk.Label(self.root, text="BOOTING...", bg="white", fg="black")
-            self.label.place(x=50, y=50, width=200, height=200)
-
-            self.root.update()
             self.root.lift()
-            self.root.focus_force()
+            self.root.update()
+
+            # Canvas for the display
+            self.canvas = tk.Canvas(self.root, width=200, height=200, bg="#FFFFFF", highlightthickness=0)
+            self.canvas.place(x=30, y=30)
+            self.root.update()
 
             self.photo = None
 
-            def poll_queue():
+            def update_ui():
+                img = None
                 try:
                     while True:
                         img = self.q.get_nowait()
-                        print(f"[Emulator] Received image, rendering...", flush=True)
-                        # Always RGB
-                        rgb_img = img.convert("RGB")
-                        self.photo = ImageTk.PhotoImage(rgb_img)
-                        self.label.configure(image=self.photo, text="")
-                        self.root.update()
                 except queue.Empty:
                     pass
-                self.root.after(100, poll_queue)
 
-            self.root.after(100, poll_queue)
+                if img:
+                    try:
+                        # Always RGB
+                        self.photo = ImageTk.PhotoImage(img.convert("RGB"))
+                        self.canvas.delete("all")
+                        self.canvas.create_image(0, 0, anchor="nw", image=self.photo)
+                        self.root.update()
+                    except Exception:
+                        pass
 
-            # Simple heartbeat to console
-            def heartbeat():
-                print("[Emulator] Window is alive...", flush=True)
-                self.root.after(2000, heartbeat)
-            self.root.after(2000, heartbeat)
+                self.root.after(100, update_ui)
 
-            print("[Emulator] Mainloop starting...", flush=True)
+            self.root.after(100, update_ui)
             self.root.mainloop()
-        except Exception as e:
-            print(f"[Emulator] GUI Error: {e}", flush=True)
+        except Exception:
+            pass
 
     def set_image(self, pil_img):
-        print(f"[Emulator] Sending image to GUI queue (Mode: {pil_img.mode})")
         self.q.put(pil_img)
 
 class FrameBuffer:
@@ -197,15 +191,13 @@ class FrameBuffer:
 
     def to_pil(self):
         from PIL import Image
-        # Create an 8-bit grayscale image
         img = Image.new("L", (self.width, self.height), 255)
         pixels = img.load()
         for y in range(self.height):
             for x in range(self.width):
-                # 0 in framebuf is black, 1 is white.
-                # In L mode: 0 is black, 255 is white.
                 pixels[x, y] = 255 if self.pixel(x, y) else 0
-        return img
+        # Physical screen orientation fix
+        return img.transpose(Image.ROTATE_180)
 
     def to_png(self, filename):
         self.to_pil().save(filename)
@@ -215,6 +207,6 @@ class FrameBuffer:
         win = EmulatorWindow()
         # Ensure the window is ready
         start_time = time.time()
-        while not hasattr(win, "label") and time.time() - start_time < 5:
+        while not hasattr(win, "canvas") and time.time() - start_time < 5:
             time.sleep(0.1)
         win.set_image(self.to_pil())
