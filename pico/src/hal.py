@@ -6,14 +6,15 @@ from version import FW_VERSION
 
 
 # Try importing MicroPython modules, otherwise use mocks for testing on host
+IS_MICROPYTHON = False
 try:
     import machine
     import network
     import urequests
     import ujson
+    import utime
     IS_MICROPYTHON = True
 except ImportError:
-    IS_MICROPYTHON = False
     # Minimal mocks for host testing context
     machine = None
     network = None
@@ -115,6 +116,28 @@ class HardwareAbstractionLayer:
                 self._epd = MockEPD()
         return self._epd
 
+    # --- Time Management ---
+    def set_time(self, unix_timestamp):
+        """Sets the system RTC from a unix timestamp."""
+        if IS_MICROPYTHON:
+            # RTC tuple: (year, month, day, weekday, hours, minutes, seconds, subseconds)
+            tm = time.localtime(unix_timestamp)
+            rtc = machine.RTC()
+            rtc.datetime((tm[0], tm[1], tm[2], tm[6], tm[3], tm[4], tm[5], 0))
+            print(f"[HAL] Time synced: {tm}")
+        else:
+            print(f"[HAL] Mock time set to {unix_timestamp}")
+
+    def get_uptime_str(self):
+        """Returns uptime as 'Xd Yh Zm'."""
+        ms = self.get_time_ms()
+        seconds = ms // 1000
+        minutes = seconds // 60
+        hours = minutes // 60
+        days = hours // 24
+
+        return f"{days}d {hours % 24}h {minutes % 60}m"
+
     # --- Network ---
     def connect_wifi(self, ssid, password, timeout_s=20):
         if not IS_MICROPYTHON:
@@ -131,6 +154,13 @@ class HardwareAbstractionLayer:
                 return True
             time.sleep(0.3)
         return False
+
+    def is_wifi_connected(self):
+        if not IS_MICROPYTHON:
+            return True
+        if not self._wlan:
+            return False
+        return self._wlan.isconnected()
 
     def get_mac_address(self):
         if not IS_MICROPYTHON:
@@ -202,9 +232,6 @@ class MockResponse:
     def __init__(self, status_code, json_content):
         self.status_code = status_code
         self._json = json_content
-        # For simplicity in mocks, assume json_content can be dumped if text is accessed
-        # or we might want to allow passing raw text in init.
-        # But for now, let's just make it robust enough for simple mocks.
         import json
         self._text = json.dumps(json_content)
 
@@ -237,5 +264,5 @@ class MockEPD:
     def display(self, image):
         print("[HAL] Mock EPD display image")
 
-    def clear(self):
+    def clear(self, fast=False):
         print("[HAL] Mock EPD clear")

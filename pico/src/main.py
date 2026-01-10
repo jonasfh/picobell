@@ -1,5 +1,5 @@
-# main.py
-import sys
+import framebuf
+import time
 import hal
 import config
 from ota import OTAUpdater
@@ -40,6 +40,77 @@ class DoorbellApp:
             "ssid": config.WIFI_SSID,
             "pwd": config.WIFI_PASSWORD,
         }
+
+        # Display State
+        self.app_mode = "START"
+        self.last_call_str = "_________"
+        self.rotation = 180 # Matches user's mounting
+        self._display_last_update = self.hal.get_time_ms()
+
+    def draw_scaled_text(self, fb, text, x, y, scale=2):
+        """Draws larger text by scaling up the 8x8 font."""
+        char_buf = bytearray(8)
+        char_fb = framebuf.FrameBuffer(char_buf, 8, 8, framebuf.MONO_HLSB)
+        for i, char in enumerate(text):
+            char_fb.fill(1)
+            char_fb.text(char, 0, 0, 0)
+            for cy in range(8):
+                for cx in range(8):
+                    if char_fb.pixel(cx, cy) == 0:
+                        fb.fill_rect(x + i*8*scale + cx*scale, y + cy*scale, scale, scale, 0)
+
+    def display_update(self, partial=False):
+        """Redraws the status screen and sleeps the display to save battery."""
+        # Force partial=False per user request for full screen refreshes
+        partial = False
+
+        epd = self.hal.get_epd()
+        epd.init() # Wake up / Reset chip
+
+        # 1. Create a "Virtual" buffer to draw on
+        width, height = 200, 200
+        buf = bytearray(width * height // 8)
+        fb = framebuf.FrameBuffer(buf, width, height, framebuf.MONO_HLSB)
+        fb.fill(1) # White
+
+        # Draw Content
+        self.draw_scaled_text(fb, "PICOBELL", 10, 15, scale=3)
+
+        ssid = self.wifi_creds.get("ssid", "NONE")
+        if not self.hal.is_wifi_connected():
+            wifi_str = "OFF"
+        else:
+            wifi_str = ssid[:6] # Keep it centered/concise
+
+        self.draw_scaled_text(fb, f"WIFI {wifi_str}", 10, 60, scale=2)
+        self.draw_scaled_text(fb, f"MODE {self.app_mode}", 10, 85, scale=2)
+        self.draw_scaled_text(fb, f"LAST CALL", 10, 110, scale=2)
+        self.draw_scaled_text(fb, f"{self.last_call_str}", 10, 135, scale=2)
+        self.draw_scaled_text(fb, f"SOFTWARE VERSION {FW_VERSION}", 10, 180, scale=1)
+
+        # Border
+        fb.rect(2, 2, 196, 196, 0)
+
+        # 2. Software Rotation
+        ready_buf = buf
+        if self.rotation == 180:
+            ready_buf = bytearray(len(buf))
+            dst_fb = framebuf.FrameBuffer(ready_buf, width, height, framebuf.MONO_HLSB)
+            dst_fb.fill(1)
+            for y in range(height):
+                for x in range(width):
+                    pixel = fb.pixel(x, y)
+                    dst_fb.pixel(width - 1 - x, height - 1 - y, pixel)
+
+        # 3. Push to display
+        if partial:
+            epd.display_partial(ready_buf)
+        else:
+            epd.clear(fast=False)
+            epd.display(ready_buf)
+
+        epd.sleep() # Deep sleep saves significant power
+        self._display_last_update = self.hal.get_time_ms()
 
     def led_update(self):
         now = self.hal.get_time_ms()
@@ -85,6 +156,9 @@ class DoorbellApp:
             print("BLE module not available")
             return
 
+        self.app_mode = "SETUP"
+        self.display_update()
+
         self.led_mode = 2
         # Initialize BLEProvision with self.hal
         prov = BLEProvision(self.hal)
@@ -102,6 +176,7 @@ class DoorbellApp:
                 print("BLE Provisioning Timeout. Returning to normal operation.")
                 self.led_mode = 0 # Turn off LED animation
                 self.pin_led.off()
+                self.display_update()
                 break
 
             self.led_update()
@@ -111,7 +186,23 @@ class DoorbellApp:
         url = config.URL_RING
 
         print("Sending RING event...")
-        self.hal.http_post(url, {}, {})
+        r = self.hal.http_post(url, {}, {})
+        if r:
+            try:
+                data = r.json()
+                ts = data.get("unix_timestamp")
+                if ts:
+                    self.hal.set_time(ts)
+                    # Format: WED 22:35 (6+ chars, but we keep it concise)
+                    days = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+                    tm = time.localtime(ts)
+                    self.last_call_str = f"{days[tm[6]]} {tm[3]:02d}:{tm[4]:02d}"
+                    print(f"Server time sync: {self.last_call_str}")
+                r.close()
+            except Exception as e:
+                print(f"Error parsing ring response: {e}")
+
+        self.display_update(partial=True)
 
     def check_open_status(self):
         url = config.URL_STATUS
@@ -127,29 +218,34 @@ class DoorbellApp:
 
     def pulse_door(self):
         print("OPENING DOOR")
-        # Pulse Output Pin (simulating button press on door controller via optocoupler)
-        # Usually active low or high depending on wiring.
-        # Assuming Optocoupler needs HIGH to activate, or LOW.
-        # Let's assume Active High for now (Pin=1 -> Opto ON -> Door Input Closed).
+        self.app_mode = "OPEN"
+        self.display_update()
+
         self.pin_door.on()
         self.hal.sleep(config.DOOR_PULSE_S)
         self.pin_door.off()
 
+        self.app_mode = "LISTEN"
+        self.display_update()
+
     def run(self):
         print(f"Booting Firmware {FW_VERSION}")
-
-        # 1. Boot Checks
+        # Note: We wait to display until WiFi or BLE mode is ready
         if not self.wifi_creds or not self.wifi_creds.get("ssid"):
             print("No Wi-Fi credentials found.")
             self.start_ble_provisioning()
         else:
             if self.connect_wifi():
                 self.led_mode = 1
+                self.app_mode = "LISTEN"
+                self.display_update()
                 # Check OTA
                 if self.ota.check_for_updates():
                     self.ota.update_firmware()
             else:
-                print("Could not connect to Wi-Fi. Entering BLE fallback.")
+                print("Could not connect to Wi-Fi. Returning to Setup.")
+                self.app_mode = "SETUP"
+                self.display_update()
                 self.start_ble_provisioning()
 
         # 2. Main Loop
