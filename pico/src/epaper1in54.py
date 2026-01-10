@@ -53,7 +53,8 @@ class EPD:
         self.cs.on()
 
     def wait_until_idle(self):
-        """Busy pin is HIGH when screen is processing."""
+        """Busy pin is HIGH when screen is processing. We wait a bit for it to transition."""
+        time.sleep(0.1)
         while self.busy.value() == 1:
             time.sleep(0.01)
 

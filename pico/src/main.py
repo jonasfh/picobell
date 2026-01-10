@@ -46,6 +46,7 @@ class DoorbellApp:
         self.last_call_str = "_________"
         self.rotation = 180 # Matches user's mounting
         self._display_last_update = self.hal.get_time_ms()
+        self.display_awake = False
 
     def draw_scaled_text(self, fb, text, x, y, scale=2):
         """Draws larger text by scaling up the 8x8 font."""
@@ -67,7 +68,7 @@ class DoorbellApp:
         fb.fill(1) # White
         return fb, buf
 
-    def _rotate_and_display(self, fb, buf, partial=False):
+    def _rotate_and_display(self, fb, buf, partial=False, sleep=True):
         """Handles rotation and pushing to the physical display."""
         width, height = 200, 200
         ready_buf = buf
@@ -81,13 +82,19 @@ class DoorbellApp:
                     dst_fb.pixel(width - 1 - x, height - 1 - y, pixel)
 
         epd = self.hal.get_epd()
-        epd.init()
+        if not self.display_awake:
+            epd.init()
+            self.display_awake = True
+
         if partial:
             epd.display_partial(ready_buf)
         else:
             epd.clear(fast=False)
             epd.display(ready_buf)
-        epd.sleep()
+
+        if sleep:
+            epd.sleep()
+            self.display_awake = False
         self._display_last_update = self.hal.get_time_ms()
 
     def display_update(self, partial=False):
@@ -156,8 +163,9 @@ class DoorbellApp:
         if is_done:
             self.draw_scaled_text(fb, "REBOOTING", 10, 175, scale=2)
 
-        # Partial if current > 1
-        self._rotate_and_display(fb, buf, partial=(current > 1))
+        # Partial if current > 1.
+        # Only sleep if done to avoid redundant wake cycles during fast updates.
+        self._rotate_and_display(fb, buf, partial=(current > 1), sleep=is_done)
 
     def led_update(self):
         now = self.hal.get_time_ms()
