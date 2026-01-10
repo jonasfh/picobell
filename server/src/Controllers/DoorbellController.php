@@ -46,6 +46,17 @@ class DoorbellController
             'user_id' => $userIds,
         ]);
         $timestamp = time();
+        $now = new \DateTime('now', new \DateTimeZone('Europe/Oslo'));
+        $localTime = [
+            'year'  => (int)$now->format('Y'),
+            'month' => (int)$now->format('m'),
+            'mday'  => (int)$now->format('d'),
+            'hour'  => (int)$now->format('H'),
+            'min'   => (int)$now->format('i'),
+            'sec'   => (int)$now->format('s'),
+            'wday'  => (int)$now->format('N') - 1, # 0=Monday
+        ];
+        $displayTime = strtoupper($now->format('D H:i'));
 
         if (!empty($devices)) {
             foreach ($devices as $device) {
@@ -55,6 +66,7 @@ class DoorbellController
                         'apartment_id' => (string)$apartment['id'],
                         'address' => $apartment['address'],
                         'timestamp' => (string) $timestamp,
+                        'display_time' => $displayTime,
                     ]
                 );
             }
@@ -64,6 +76,8 @@ class DoorbellController
             'status' => 'notified',
             'device_count' => count($devices),
             'unix_timestamp' => $timestamp,
+            'local_time' => $localTime,
+            'display_time' => $displayTime,
         ]);
     }
 
