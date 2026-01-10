@@ -45,6 +45,7 @@ class DoorbellController
         $devices = $this->db->select('devices', ['token'], [
             'user_id' => $userIds,
         ]);
+        $timestamp = time();
 
         if (!empty($devices)) {
             foreach ($devices as $device) {
@@ -53,7 +54,7 @@ class DoorbellController
                     [
                         'apartment_id' => (string)$apartment['id'],
                         'address' => $apartment['address'],
-                        'timestamp' => (string) time(),
+                        'timestamp' => (string) $timestamp,
                     ]
                 );
             }
@@ -62,6 +63,7 @@ class DoorbellController
         return $this->json($res, [
             'status' => 'notified',
             'device_count' => count($devices),
+            'unix_timestamp' => $timestamp,
         ]);
     }
 
