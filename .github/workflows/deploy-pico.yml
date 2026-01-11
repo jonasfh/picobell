@@ -67,6 +67,18 @@ jobs:
             echo "Error: Tag $TAG already exists. Please bump fw_version.txt."
             exit 1
           fi
+      - name: Making sure pico/CHANGELOG.md is up to date
+        run: |
+          set -e
+          # Check if pico/CHANGELOG.md has header starting
+          # with ## ${FW_VERSION} (followed by a space)
+          expected="## $FW_VERSION "
+          if [ -z $(grep -le "$expected" pico/CHANGELOG.md) ]
+          then
+            # Make error text red
+            echo -e "\033[0;31mpico/CHANGELOG.md must be updated\033[0m"
+            exit 1
+          fi
 
       - name: Generate version files
         # on changed AND only for PRs (to avoid race conditions on main pushes)
