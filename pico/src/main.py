@@ -18,7 +18,8 @@ class DoorbellApp:
 
         # Pins
         self.pin_btn = self.hal.create_pin_in(config.PIN_BTN_BOOT, pull_up=True)
-        self.pin_ring = self.hal.create_pin_in(config.PIN_RING_IN, pull_up=True) # Input from Optocoupler
+        # Use ADC for ring detection
+        self.pin_ring = self.hal.create_adc(config.PIN_RING_IN)
         self.pin_door = self.hal.create_pin_out(config.PIN_DOOR_OUT)             # Output to Optocoupler
 
         # We assume LED pin is handled by HAL or machine but HAL.create_pin_out can handle "LED" string if implemented
@@ -356,19 +357,37 @@ class DoorbellApp:
                     self.hal.sleep_ms(100)
 
             # Ring Pin: Input (normally HIGH, LOW when pressed/active if pullup)
-            # Optocoupler input: If opto closes to GND, then LOW.
-            if self.pin_ring.value() == 0:
-                # Debounce
+            # Optocoupler input connects to ADC.
+            # Idle: ~4417 (0.222V)
+            # Ring: ~3568 (0.180V)
+            # Threshold: 4000
+
+            # Read ADC value
+            adc_val = self.pin_ring.read_u16()
+
+            if adc_val < config.RING_THRESHOLD:
+                # Debounce: Confirm it stays low
+                print(f"POTENTIAL RING: {adc_val}")
                 self.hal.sleep_ms(50)
-                if self.pin_ring.value() == 0:
-                    print("RING Detected")
+
+                # Double check with a few samples to be sure it's not noise
+                confirm_ring = True
+                for _ in range(3):
+                    if self.pin_ring.read_u16() >= config.RING_THRESHOLD:
+                        confirm_ring = False
+                        break
+                    self.hal.sleep_ms(50)
+
+                if confirm_ring:
+                    print("RING Detected (ADC Confirmed)")
                     if self.led_mode == 1: # Only if wifi connected
                          self.send_ring_event()
                          self.ring_ts = self.hal.get_time_ms() # Start checking window
                          self.status_check_ts = self.hal.get_time_ms()
 
-                    # Wait for release to avoid multiple triggers
-                    while self.pin_ring.value() == 0:
+                    # Wait for release (return to idle state)
+                    # Loop while still below threshold (ringing)
+                    while self.pin_ring.read_u16() < config.RING_THRESHOLD:
                         self.hal.sleep_ms(100)
 
             # Check for open command if within window

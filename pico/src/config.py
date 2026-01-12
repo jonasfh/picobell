@@ -9,9 +9,10 @@ except ImportError:
 # Hardware Pins
 PIN_BTN_BOOT = 15      # Long-press to reboot/enter provisioning
 # change pin for ring input so it dont use the same pin as the busy signal
-PIN_RING_IN = 12       # Input from Optocoupler (Doorbell Ring)
+PIN_RING_IN = 26       # Input from Optocoupler (Doorbell Ring) - ADC0
 PIN_DOOR_OUT = 11      # Output to Optocoupler (Door Opener)
 PIN_LED = "LED"        # Onboard LED
+RING_THRESHOLD = 4000  # Threshold for ADC reading (idle ~4417, ring ~3568)
 
 # E-Ink Display Pins (Waveshare 1.54" V2)
 PIN_EPD_DIN = 7        # MOSI (GP7)

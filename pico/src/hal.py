@@ -14,6 +14,7 @@ try:
     import ujson
     import utime
     import framebuf
+    import math
     IS_MICROPYTHON = True
 except ImportError:
     # Minimal mocks for host testing context
@@ -96,6 +97,12 @@ class HardwareAbstractionLayer:
             return machine.Pin(pin_id, machine.Pin.OUT)
         else:
             return MockPin(pin_id, 0)
+
+    def create_adc(self, pin_id):
+        if IS_MICROPYTHON:
+            return machine.ADC(pin_id)
+        else:
+            return MockADC(pin_id)
 
     # --- SPI Management ---
     def create_spi(self, spi_id, baudrate, sck_pin, mosi_pin, miso_pin=None):
@@ -266,6 +273,18 @@ class MockPin:
 
     def off(self):
         self._value = 0
+
+class MockADC:
+    def __init__(self, pin_id):
+        self.pin_id = pin_id
+        # Default to a high value (idle state ~4417)
+        self._value = 4417
+
+    def read_u16(self):
+        return self._value
+
+    def set_value(self, val):
+        self._value = val
 
 class MockResponse:
     def __init__(self, status_code, json_content):
