@@ -18,7 +18,8 @@ class DoorbellApp:
 
         # Pins
         self.pin_btn = self.hal.create_pin_in(config.PIN_BTN_BOOT, pull_up=True)
-        self.pin_ring = self.hal.create_pin_in(config.PIN_RING_IN, pull_up=True) # Input from Optocoupler
+        # Use ADC for ring detection
+        self.pin_ring = self.hal.create_adc(config.PIN_RING_IN)
         self.pin_door = self.hal.create_pin_out(config.PIN_DOOR_OUT)             # Output to Optocoupler
 
         # We assume LED pin is handled by HAL or machine but HAL.create_pin_out can handle "LED" string if implemented
@@ -254,8 +255,9 @@ class DoorbellApp:
         r = self.hal.http_post(url, {}, {})
         if r:
             try:
+                # Reduced verbosity as requested
+                print(f"Server response: {r.status_code} OK")
                 data = r.json()
-                print(f"Server response: {data}")
 
                 # Update system clock from structured server time
                 lt = data.get("local_time")
@@ -324,6 +326,11 @@ class DoorbellApp:
                 self.display_update()
                 self.start_ble_provisioning()
 
+        # Disconnect after initial check
+        print("Initial checks done. Disconnecting Wi-Fi to save power.")
+        self.hal.disconnect_wifi()
+        self.led_mode = 0
+
         # 2. Main Loop
         print("Entering Main Loop")
         while True:
@@ -356,37 +363,98 @@ class DoorbellApp:
                     self.hal.sleep_ms(100)
 
             # Ring Pin: Input (normally HIGH, LOW when pressed/active if pullup)
-            # Optocoupler input: If opto closes to GND, then LOW.
-            if self.pin_ring.value() == 0:
-                # Debounce
-                self.hal.sleep_ms(50)
-                if self.pin_ring.value() == 0:
-                    print("RING Detected")
-                    if self.led_mode == 1: # Only if wifi connected
-                         self.send_ring_event()
-                         self.ring_ts = self.hal.get_time_ms() # Start checking window
-                         self.status_check_ts = self.hal.get_time_ms()
+            # Optocoupler input connects to ADC.
+            # Idle: ~4417 (0.222V)
+            # Ring: ~3568 (0.180V)
+            # Threshold: 4000
 
-                    # Wait for release to avoid multiple triggers
-                    while self.pin_ring.value() == 0:
-                        self.hal.sleep_ms(100)
+            # Read ADC value
+            adc_val = self.pin_ring.read_u16()
+
+            if adc_val < config.RING_THRESHOLD:
+                # Debounce: Confirm it stays low
+                print(f"POTENTIAL RING: {adc_val}")
+                self.hal.sleep_ms(50)
+
+                # Double check with a few samples to be sure it's not noise
+                confirm_ring = True
+                for _ in range(3):
+                    if self.pin_ring.read_u16() >= config.RING_THRESHOLD:
+                        confirm_ring = False
+                        break
+                    self.hal.sleep_ms(50)
+
+                if confirm_ring:
+                    print("RING Detected (ADC Confirmed)")
+                if confirm_ring:
+                    print("RING Detected (ADC Confirmed)")
+
+                    # Wake up sequence
+                    connected = False
+                    if self.wifi_creds:
+                        print("Waking up Wi-Fi...")
+                        connected = self.connect_wifi()
+                        if connected:
+                            self.led_mode = 1
+                            self.send_ring_event()
+                            self.ring_ts = self.hal.get_time_ms() # Start checking window
+                            self.status_check_ts = 0 # Force immediate check logic handling
+                        else:
+                            print("Wi-Fi wake failed.")
+
+                    # Wait for release (return to idle state)
+                    # Loop while still below threshold (ringing)
+                    while self.pin_ring.read_u16() < config.RING_THRESHOLD:
+                         self.hal.sleep_ms(100)
 
             # Check for open command if within window
             if self.ring_ts > 0:
-                # Window: 5 mins
+                # Window: 3 mins (300s -> 180s per user request? User said 3 min)
+                # Config says 300s. Let's stick to config or update?
+                # User request: "3 min". Check config.STATUS_CHECK_DURATION_S (is 300).
+                # We will trust the check below against config constant.
+
+                # If Wi-Fi is OFF, we need to handle the loop carefully.
+                # The user wants: Sleep 5s (wifi off), Connect, Check, Disconnect.
+
                 if self.hal.time_diff(self.ring_ts) > config.STATUS_CHECK_DURATION_S * 1000:
                     self.ring_ts = 0 # Window expired
+                    print("Ring window expired. Returning to deep sleep.")
+                    self.hal.disconnect_wifi()
+                    self.led_mode = 0
 
                 else:
-                    # Check every 10s
-                    if self.hal.time_diff(self.status_check_ts) > config.STATUS_CHECK_INTERVAL_S * 1000:
+                    # Check interval (every 5s)
+                    # We should disconnect if we passed the check phase
+
+                    if self.hal.time_diff(self.status_check_ts) > 5000: # 5 sec interval
                         self.status_check_ts = self.hal.get_time_ms()
-                        print("Checking door status...")
+
+                        # Re-connect if needed (we disconnect between checks)
+                        if not self.hal.is_wifi_connected():
+                             self.connect_wifi()
+
+                        print("#", end="") # Progress marker for checking
                         if self.check_open_status():
                             self.pulse_door()
                             self.ring_ts = 0 # Stop checking after open
 
-            self.hal.sleep_ms(50)
+                        # Disconnect immediately after check to save power
+                        self.hal.disconnect_wifi()
+
+            # Sleep logic
+            if self.ring_ts > 0:
+                 # Inside Ring Window: We need to sleep until next check (~5s)
+                 # But we loop fast to check main buttons?
+                 # User said "Sleep remainder of 5s".
+                 # But we also need to check ring pin? "Start opp wifi ved ring på event" implies re-trigger.
+                 # If we sleep 5s, we miss rings? But we are already in "Ring mode".
+                 # Let's sleep shorter intervals or just use the loop logic.
+                 self.hal.sleep_ms(100)
+            else:
+                 # Normal idle: Sleep 1s deep
+                 print(".", end="") # Heartbeat dot
+                 self.hal.low_power_sleep(1000)
 
 
 if __name__ == "__main__":

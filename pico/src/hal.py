@@ -14,6 +14,7 @@ try:
     import ujson
     import utime
     import framebuf
+    import math
     IS_MICROPYTHON = True
 except ImportError:
     # Minimal mocks for host testing context
@@ -52,6 +53,18 @@ class HardwareAbstractionLayer:
 
     def sleep(self, duration_s):
         time.sleep(duration_s)
+
+    def low_power_sleep(self, duration_ms):
+        """
+        Enters a lower power state if possible.
+        On MicroPython, uses machine.lightsleep() which keeps RAM but stops CPU.
+        """
+        if IS_MICROPYTHON:
+            # Check if we need to wake up for specific reasons?
+            # lightsleep takes ms.
+            machine.lightsleep(duration_ms)
+        else:
+            time.sleep(duration_ms / 1000.0)
 
     def file_exists(self, filepath):
         try:
@@ -96,6 +109,12 @@ class HardwareAbstractionLayer:
             return machine.Pin(pin_id, machine.Pin.OUT)
         else:
             return MockPin(pin_id, 0)
+
+    def create_adc(self, pin_id):
+        if IS_MICROPYTHON:
+            return machine.ADC(pin_id)
+        else:
+            return MockADC(pin_id)
 
     # --- SPI Management ---
     def create_spi(self, spi_id, baudrate, sck_pin, mosi_pin, miso_pin=None):
@@ -192,7 +211,20 @@ class HardwareAbstractionLayer:
             if self._wlan.isconnected():
                 return True
             time.sleep(0.3)
+            if self._wlan.isconnected():
+                return True
+            time.sleep(0.3)
         return False
+
+    def disconnect_wifi(self):
+        if not IS_MICROPYTHON:
+            print("[HAL] Mock disconnecting WiFi")
+            return
+
+        if self._wlan:
+            self._wlan.disconnect()
+            self._wlan.active(False)
+            print("[HAL] WiFi disconnected/disabled")
 
     def is_wifi_connected(self):
         if not IS_MICROPYTHON:
@@ -266,6 +298,18 @@ class MockPin:
 
     def off(self):
         self._value = 0
+
+class MockADC:
+    def __init__(self, pin_id):
+        self.pin_id = pin_id
+        # Default to a high value (idle state ~4417)
+        self._value = 4417
+
+    def read_u16(self):
+        return self._value
+
+    def set_value(self, val):
+        self._value = val
 
 class MockResponse:
     def __init__(self, status_code, json_content):
