@@ -255,8 +255,9 @@ class DoorbellApp:
         r = self.hal.http_post(url, {}, {})
         if r:
             try:
+                # Reduced verbosity as requested
+                print(f"Server response: {r.status_code} OK")
                 data = r.json()
-                print(f"Server response: {data}")
 
                 # Update system clock from structured server time
                 lt = data.get("local_time")
@@ -433,7 +434,7 @@ class DoorbellApp:
                         if not self.hal.is_wifi_connected():
                              self.connect_wifi()
 
-                        print("Checking door status...")
+                        print("#", end="") # Progress marker for checking
                         if self.check_open_status():
                             self.pulse_door()
                             self.ring_ts = 0 # Stop checking after open
@@ -452,6 +453,7 @@ class DoorbellApp:
                  self.hal.sleep_ms(100)
             else:
                  # Normal idle: Sleep 1s deep
+                 print(".", end="") # Heartbeat dot
                  self.hal.low_power_sleep(1000)
 
 
